@@ -1,0 +1,46 @@
+# Entorno de DESARROLLO con HOT RELOAD.
+#   docker compose -f docker-compose.dev.yml up --build
+#   -> Frontend (Vite + HMR) en  http://localhost:5173
+#   -> Backend (uvicorn --reload) detrás, accesible vía el proxy /api de Vite.
+#
+# Edita archivos en ./frontend o ./backend y los cambios se recargan solos,
+# sin reconstruir la imagen.
+#
+# El despliegue de PRODUCCIÓN sigue en docker-compose.yml (build optimizado,
+# nginx en :8080). Nombre de proyecto distinto (retobox-dev) para que dev y prod
+# coexistan sin pisarse contenedores ni volúmenes.
+
+name: retobox-dev
+
+services:
+  api:
+    build: ./backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      - DATABASE_PATH=/data/retobox.db
+      - SEED_DATA=1                     # carga las 29 tarjetas de ejemplo en dev
+    volumes:
+      - ./backend/app:/app/app        # código montado -> uvicorn --reload lo vigila
+      - retobox-data-dev:/data
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    environment:
+      - VITE_API_PROXY=http://api:8000  # el proxy de Vite apunta al servicio api
+      - VITE_POLLING=1                  # polling de ficheros para HMR fiable en Docker
+    volumes:
+      - ./frontend:/app                 # código fuente montado
+      - /app/node_modules               # preserva node_modules del contenedor
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  retobox-data-dev:

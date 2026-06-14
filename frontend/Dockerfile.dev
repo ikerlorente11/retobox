@@ -1,0 +1,16 @@
+# Imagen de DESARROLLO: ejecuta el dev server de Vite con hot reload (HMR).
+# El código fuente se monta como volumen desde docker-compose.dev.yml;
+# node_modules se instala dentro de la imagen (binarios nativos correctos para
+# el contenedor) y se preserva con un volumen anónimo en el compose.
+FROM node:20-alpine
+WORKDIR /app
+
+# Instala dependencias primero para aprovechar la caché de capas.
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# Copia el resto (en dev el volumen lo sobreescribe, pero permite arrancar sin mount).
+COPY . .
+
+EXPOSE 5173
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]

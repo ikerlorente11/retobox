@@ -1,0 +1,29 @@
+# ---- Node / frontend ----
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+*.tsbuildinfo
+*.local
+
+# ---- Python / backend ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# ---- SQLite / datos ----
+*.db
+*.db-wal
+*.db-shm
+data/
+
+# ---- Logs / temporales ----
+*.log
+.DS_Store
+
+# ---- Editores ----
+.vscode/
+.idea/

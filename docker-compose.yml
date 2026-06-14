@@ -1,0 +1,32 @@
+# Despliegue de PRODUCCIÓN: build optimizado, nginx sirve la SPA en :8080.
+# NO se cargan retos de ejemplo (SEED_DATA ausente) -> arranca vacío; solo
+# aparecen los retos que se añadan desde la app.
+name: retobox
+
+services:
+  api:
+    build: ./backend
+    environment:
+      - DATABASE_PATH=/data/retobox.db
+      # SEED_DATA deliberadamente ausente -> sin tarjetas de prueba en producción.
+    volumes:
+      - retobox-data:/data
+    expose:
+      - "8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; urllib.request.urlopen('http://localhost:8000/api/health'); sys.exit(0)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  retobox-data:
