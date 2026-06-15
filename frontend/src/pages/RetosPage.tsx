@@ -52,7 +52,7 @@ export function RetosPage() {
             return (
               <motion.li
                 key={c.id}
-                layout
+                layout="position"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, x: -30 }}
@@ -65,9 +65,7 @@ export function RetosPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className={`font-bold ${expanded ? '' : 'truncate'}`}>
-                        {c.title}
-                      </h3>
+                      <h3 className="truncate font-bold">{c.title}</h3>
                       {c.repeatable && (
                         <span className="shrink-0 rounded-full bg-neon-purple/20 px-2 py-0.5 text-[10px] font-semibold text-neon-purple">
                           🔁 Repetible
@@ -79,15 +77,24 @@ export function RetosPage() {
                         </span>
                       )}
                     </div>
-                    {c.description && (
-                      <p
-                        className={`mt-1 text-sm text-slate-400 ${
-                          expanded ? 'whitespace-pre-wrap' : 'line-clamp-2'
-                        }`}
-                      >
+                    {c.description && !expanded && (
+                      <p className="mt-1 line-clamp-2 text-sm text-slate-400">
                         {c.description}
                       </p>
                     )}
+                    <AnimatePresence initial={false}>
+                      {c.description && expanded && (
+                        <motion.p
+                          key="full-desc"
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          transition={{ duration: 0.28, ease: 'easeOut' }}
+                          className="mt-1 overflow-hidden whitespace-pre-wrap text-sm text-slate-400"
+                        >
+                          {c.description}
+                        </motion.p>
+                      )}
+                    </AnimatePresence>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     <span className="rounded-full bg-neon-purple/20 px-3 py-1 text-xs font-bold text-neon-purple">
