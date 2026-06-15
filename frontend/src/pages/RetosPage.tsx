@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
 import { Modal } from '../components/Modal'
 import { EditIcon, PlusIcon, TrashIcon } from '../components/icons'
@@ -47,100 +47,18 @@ export function RetosPage() {
 
       <ul className="flex flex-col gap-3">
         <AnimatePresence initial={false}>
-          {challenges.map((c) => {
-            const expanded = expandedId === c.id
-            return (
-              <motion.li
-                key={c.id}
-                layout="position"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, x: -30 }}
-                onClick={() => setExpandedId(expanded ? null : c.id)}
-                className={`glass cursor-pointer rounded-3xl p-4 transition-colors hover:bg-white/[0.07] ${
-                  c.is_used ? 'opacity-60' : ''
-                }`}
-                aria-expanded={expanded}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="truncate font-bold">{c.title}</h3>
-                      {c.repeatable && (
-                        <span className="shrink-0 rounded-full bg-neon-purple/20 px-2 py-0.5 text-[10px] font-semibold text-neon-purple">
-                          🔁 Repetible
-                        </span>
-                      )}
-                      {c.is_used && !c.repeatable && (
-                        <span className="shrink-0 rounded-full bg-rose-500/20 px-2 py-0.5 text-[10px] font-semibold text-rose-200">
-                          Usado
-                        </span>
-                      )}
-                    </div>
-                    {c.description && !expanded && (
-                      <p className="mt-1 line-clamp-2 text-sm text-slate-400">
-                        {c.description}
-                      </p>
-                    )}
-                    <AnimatePresence initial={false}>
-                      {c.description && expanded && (
-                        <motion.p
-                          key="full-desc"
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          transition={{ duration: 0.28, ease: 'easeOut' }}
-                          className="mt-1 overflow-hidden whitespace-pre-wrap text-sm text-slate-400"
-                        >
-                          {c.description}
-                        </motion.p>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <span className="rounded-full bg-neon-purple/20 px-3 py-1 text-xs font-bold text-neon-purple">
-                      👥 {c.required_users}
-                      {c.involved_users != null && (
-                        <span className="text-neon-purple/70">
-                          {' '}
-                          / {c.involved_users}
-                        </span>
-                      )}
-                    </span>
-                    <motion.span
-                      animate={{ rotate: expanded ? 180 : 0 }}
-                      className="text-slate-400"
-                      aria-hidden
-                    >
-                      <ChevronDown className="h-4 w-4" />
-                    </motion.span>
-                  </div>
-                </div>
-
-                <div className="mt-3 flex justify-end gap-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      openEdit(c)
-                    }}
-                    className="grid h-9 w-9 place-items-center rounded-xl bg-white/5 text-slate-300 hover:bg-white/10"
-                    aria-label={`Editar ${c.title}`}
-                  >
-                    <EditIcon className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setConfirmDel(c)
-                    }}
-                    className="grid h-9 w-9 place-items-center rounded-xl bg-rose-500/15 text-rose-200 hover:bg-rose-500/25"
-                    aria-label={`Borrar ${c.title}`}
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </button>
-                </div>
-              </motion.li>
-            )
-          })}
+          {challenges.map((c) => (
+            <ChallengeCard
+              key={c.id}
+              c={c}
+              expanded={expandedId === c.id}
+              onToggle={() =>
+                setExpandedId((id) => (id === c.id ? null : c.id))
+              }
+              onEdit={() => openEdit(c)}
+              onDelete={() => setConfirmDel(c)}
+            />
+          ))}
         </AnimatePresence>
       </ul>
 
@@ -180,6 +98,122 @@ export function RetosPage() {
         </div>
       </Modal>
     </div>
+  )
+}
+
+// Altura (px) que ocupa la previsualización colapsada (~2 líneas de text-sm).
+const COLLAPSED_DESC_H = 40
+
+function ChallengeCard({
+  c,
+  expanded,
+  onToggle,
+  onEdit,
+  onDelete,
+}: {
+  c: Challenge
+  expanded: boolean
+  onToggle: () => void
+  onEdit: () => void
+  onDelete: () => void
+}) {
+  const descRef = useRef<HTMLParagraphElement>(null)
+  const [fullH, setFullH] = useState<number | null>(null)
+
+  // Medimos la altura real del texto antes de pintar para animar de forma
+  // controlada (de la altura colapsada a la completa) sin saltos ni rebotes.
+  useLayoutEffect(() => {
+    if (descRef.current) setFullH(descRef.current.scrollHeight)
+  }, [c.description])
+
+  // Solo es desplegable si el texto no cabe ya en la vista colapsada.
+  const expandable = fullH != null && fullH > COLLAPSED_DESC_H + 1
+  const collapsedH = fullH != null ? Math.min(fullH, COLLAPSED_DESC_H) : COLLAPSED_DESC_H
+
+  return (
+    <motion.li
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, x: -30 }}
+      onClick={() => expandable && onToggle()}
+      className={`glass rounded-3xl p-4 transition-colors ${
+        c.is_used ? 'opacity-60' : ''
+      } ${expandable ? 'cursor-pointer hover:bg-white/[0.07]' : ''}`}
+      aria-expanded={expandable ? expanded : undefined}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <h3 className="truncate font-bold">{c.title}</h3>
+            {c.repeatable && (
+              <span className="shrink-0 rounded-full bg-neon-purple/20 px-2 py-0.5 text-[10px] font-semibold text-neon-purple">
+                🔁 Repetible
+              </span>
+            )}
+            {c.is_used && !c.repeatable && (
+              <span className="shrink-0 rounded-full bg-rose-500/20 px-2 py-0.5 text-[10px] font-semibold text-rose-200">
+                Usado
+              </span>
+            )}
+          </div>
+          {c.description && (
+            <motion.div
+              initial={false}
+              animate={{ height: expanded ? (fullH ?? 'auto') : collapsedH }}
+              transition={{ duration: 0.28, ease: 'easeInOut' }}
+              className="mt-1 overflow-hidden"
+            >
+              <p
+                ref={descRef}
+                className="whitespace-pre-wrap text-sm leading-5 text-slate-400"
+              >
+                {c.description}
+              </p>
+            </motion.div>
+          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="rounded-full bg-neon-purple/20 px-3 py-1 text-xs font-bold text-neon-purple">
+            👥 {c.required_users}
+            {c.involved_users != null && (
+              <span className="text-neon-purple/70"> / {c.involved_users}</span>
+            )}
+          </span>
+          {expandable && (
+            <motion.span
+              animate={{ rotate: expanded ? 180 : 0 }}
+              className="text-slate-400"
+              aria-hidden
+            >
+              <ChevronDown className="h-4 w-4" />
+            </motion.span>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-3 flex justify-end gap-2">
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onEdit()
+          }}
+          className="grid h-9 w-9 place-items-center rounded-xl bg-white/5 text-slate-300 hover:bg-white/10"
+          aria-label={`Editar ${c.title}`}
+        >
+          <EditIcon className="h-4 w-4" />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onDelete()
+          }}
+          className="grid h-9 w-9 place-items-center rounded-xl bg-rose-500/15 text-rose-200 hover:bg-rose-500/25"
+          aria-label={`Borrar ${c.title}`}
+        >
+          <TrashIcon className="h-4 w-4" />
+        </button>
+      </div>
+    </motion.li>
   )
 }
 
