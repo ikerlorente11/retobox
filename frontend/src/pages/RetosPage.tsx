@@ -109,27 +109,6 @@ export function RetosPage() {
                   </div>
                 </div>
 
-                {expanded && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-white/10 pt-3 text-xs sm:grid-cols-4"
-                  >
-                    <Detail label="Realizan" value={String(c.required_users)} />
-                    <Detail
-                      label="Involucrados"
-                      value={
-                        c.involved_users != null ? String(c.involved_users) : '—'
-                      }
-                    />
-                    <Detail label="Repetible" value={c.repeatable ? 'Sí' : 'No'} />
-                    <Detail
-                      label="Estado"
-                      value={c.is_used && !c.repeatable ? 'Usado' : 'Disponible'}
-                    />
-                  </motion.div>
-                )}
-
                 <div className="mt-3 flex justify-end gap-2">
                   <button
                     onClick={(e) => {
@@ -193,17 +172,6 @@ export function RetosPage() {
           </button>
         </div>
       </Modal>
-    </div>
-  )
-}
-
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col">
-      <span className="text-[11px] uppercase tracking-wide text-slate-500">
-        {label}
-      </span>
-      <span className="font-semibold text-slate-200">{value}</span>
     </div>
   )
 }
