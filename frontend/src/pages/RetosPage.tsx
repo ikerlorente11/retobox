@@ -10,6 +10,7 @@ export function RetosPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Challenge | null>(null)
   const [confirmDel, setConfirmDel] = useState<Challenge | null>(null)
+  const [expandedId, setExpandedId] = useState<number | null>(null)
 
   function openNew() {
     setEditing(null)
@@ -46,66 +47,114 @@ export function RetosPage() {
 
       <ul className="flex flex-col gap-3">
         <AnimatePresence initial={false}>
-          {challenges.map((c) => (
-            <motion.li
-              key={c.id}
-              layout
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, x: -30 }}
-              className={`glass rounded-3xl p-4 ${
-                c.is_used ? 'opacity-60' : ''
-              }`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="truncate font-bold">{c.title}</h3>
-                    {c.repeatable && (
-                      <span className="shrink-0 rounded-full bg-neon-purple/20 px-2 py-0.5 text-[10px] font-semibold text-neon-purple">
-                        🔁 Repetible
-                      </span>
-                    )}
-                    {c.is_used && !c.repeatable && (
-                      <span className="shrink-0 rounded-full bg-rose-500/20 px-2 py-0.5 text-[10px] font-semibold text-rose-200">
-                        Usado
-                      </span>
+          {challenges.map((c) => {
+            const expanded = expandedId === c.id
+            return (
+              <motion.li
+                key={c.id}
+                layout
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, x: -30 }}
+                onClick={() => setExpandedId(expanded ? null : c.id)}
+                className={`glass cursor-pointer rounded-3xl p-4 transition-colors hover:bg-white/[0.07] ${
+                  c.is_used ? 'opacity-60' : ''
+                }`}
+                aria-expanded={expanded}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className={`font-bold ${expanded ? '' : 'truncate'}`}>
+                        {c.title}
+                      </h3>
+                      {c.repeatable && (
+                        <span className="shrink-0 rounded-full bg-neon-purple/20 px-2 py-0.5 text-[10px] font-semibold text-neon-purple">
+                          🔁 Repetible
+                        </span>
+                      )}
+                      {c.is_used && !c.repeatable && (
+                        <span className="shrink-0 rounded-full bg-rose-500/20 px-2 py-0.5 text-[10px] font-semibold text-rose-200">
+                          Usado
+                        </span>
+                      )}
+                    </div>
+                    {c.description && (
+                      <p
+                        className={`mt-1 text-sm text-slate-400 ${
+                          expanded ? 'whitespace-pre-wrap' : 'line-clamp-2'
+                        }`}
+                      >
+                        {c.description}
+                      </p>
                     )}
                   </div>
-                  {c.description && (
-                    <p className="mt-1 text-sm text-slate-400 line-clamp-2">
-                      {c.description}
-                    </p>
-                  )}
-                </div>
-                <span className="shrink-0 rounded-full bg-neon-purple/20 px-3 py-1 text-xs font-bold text-neon-purple">
-                  👥 {c.required_users}
-                  {c.involved_users != null && (
-                    <span className="text-neon-purple/70">
-                      {' '}
-                      / {c.involved_users}
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className="rounded-full bg-neon-purple/20 px-3 py-1 text-xs font-bold text-neon-purple">
+                      👥 {c.required_users}
+                      {c.involved_users != null && (
+                        <span className="text-neon-purple/70">
+                          {' '}
+                          / {c.involved_users}
+                        </span>
+                      )}
                     </span>
-                  )}
-                </span>
-              </div>
-              <div className="mt-3 flex justify-end gap-2">
-                <button
-                  onClick={() => openEdit(c)}
-                  className="grid h-9 w-9 place-items-center rounded-xl bg-white/5 text-slate-300 hover:bg-white/10"
-                  aria-label={`Editar ${c.title}`}
-                >
-                  <EditIcon className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => setConfirmDel(c)}
-                  className="grid h-9 w-9 place-items-center rounded-xl bg-rose-500/15 text-rose-200 hover:bg-rose-500/25"
-                  aria-label={`Borrar ${c.title}`}
-                >
-                  <TrashIcon className="h-4 w-4" />
-                </button>
-              </div>
-            </motion.li>
-          ))}
+                    <motion.span
+                      animate={{ rotate: expanded ? 180 : 0 }}
+                      className="text-slate-400"
+                      aria-hidden
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </motion.span>
+                  </div>
+                </div>
+
+                {expanded && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-white/10 pt-3 text-xs sm:grid-cols-4"
+                  >
+                    <Detail label="Realizan" value={String(c.required_users)} />
+                    <Detail
+                      label="Involucrados"
+                      value={
+                        c.involved_users != null ? String(c.involved_users) : '—'
+                      }
+                    />
+                    <Detail label="Repetible" value={c.repeatable ? 'Sí' : 'No'} />
+                    <Detail
+                      label="Estado"
+                      value={c.is_used && !c.repeatable ? 'Usado' : 'Disponible'}
+                    />
+                  </motion.div>
+                )}
+
+                <div className="mt-3 flex justify-end gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      openEdit(c)
+                    }}
+                    className="grid h-9 w-9 place-items-center rounded-xl bg-white/5 text-slate-300 hover:bg-white/10"
+                    aria-label={`Editar ${c.title}`}
+                  >
+                    <EditIcon className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setConfirmDel(c)
+                    }}
+                    className="grid h-9 w-9 place-items-center rounded-xl bg-rose-500/15 text-rose-200 hover:bg-rose-500/25"
+                    aria-label={`Borrar ${c.title}`}
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              </motion.li>
+            )
+          })}
         </AnimatePresence>
       </ul>
 
@@ -145,6 +194,33 @@ export function RetosPage() {
         </div>
       </Modal>
     </div>
+  )
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col">
+      <span className="text-[11px] uppercase tracking-wide text-slate-500">
+        {label}
+      </span>
+      <span className="font-semibold text-slate-200">{value}</span>
+    </div>
+  )
+}
+
+function ChevronDown({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
   )
 }
 
@@ -244,7 +320,7 @@ function ChallengeForm({
             Descripción
           </label>
           <textarea
-            className="input min-h-[80px] resize-none"
+            className="input min-h-[180px] resize-y"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Detalles del reto (opcional)"
