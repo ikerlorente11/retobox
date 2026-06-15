@@ -162,23 +162,27 @@ export const useStore = create<AppState>((set, get) => ({
           ? { mode, selected_user_ids: selectedUserIds }
           : { mode: 'random' as const }
       const result = await api.draw(body)
-      // marcar reto como usado localmente y actualizar el contador de forma
-      // optimista (una carta menos disponible) para que no quede desfasado si
-      // /stats tarda o falla; refreshStats luego reconcilia con el servidor.
+      // Reflejar el estado de la carta de forma optimista. Las repetibles no se
+      // marcan como usadas (el backend devuelve is_used=false) y por tanto no
+      // descuentan del contador; refreshStats luego reconcilia con el servidor.
+      const consumed = result.challenge.is_used
       set((s) => ({
         result,
         drawId: s.drawId + 1,
         drawing: false,
         challenges: s.challenges.map((c) =>
-          c.id === result.challenge.id ? { ...c, is_used: true } : c,
+          c.id === result.challenge.id
+            ? { ...c, is_used: result.challenge.is_used }
+            : c,
         ),
-        stats: s.stats
-          ? {
-              ...s.stats,
-              used: s.stats.used + 1,
-              available: Math.max(0, s.stats.available - 1),
-            }
-          : s.stats,
+        stats:
+          s.stats && consumed
+            ? {
+                ...s.stats,
+                used: s.stats.used + 1,
+                available: Math.max(0, s.stats.available - 1),
+              }
+            : s.stats,
       }))
       void get().refreshStats()
     } catch (e) {

@@ -107,9 +107,17 @@ def create_challenge(payload: ChallengeCreate) -> Challenge:
     now = datetime.now(timezone.utc).isoformat()
     with _lock:
         cur = conn.execute(
-            "INSERT INTO challenges (title, description, required_users, is_used, created_at) "
-            "VALUES (?, ?, ?, 0, ?)",
-            (payload.title, payload.description, payload.required_users, now),
+            "INSERT INTO challenges "
+            "(title, description, required_users, involved_users, repeatable, is_used, created_at) "
+            "VALUES (?, ?, ?, ?, ?, 0, ?)",
+            (
+                payload.title,
+                payload.description,
+                payload.required_users,
+                payload.involved_users,
+                int(payload.repeatable),
+                now,
+            ),
         )
         conn.commit()
         row = conn.execute(
@@ -128,6 +136,9 @@ def update_challenge(challenge_id: int, payload: ChallengeUpdate) -> Challenge:
         if row is None:
             raise HTTPException(status_code=404, detail="Reto no encontrado.")
 
+        # model_fields_set distingue "campo no enviado" de "campo = null", lo que
+        # permite limpiar involved_users mandando explícitamente null.
+        sent = payload.model_fields_set
         fields: list[str] = []
         values: list = []
         if payload.title is not None:
@@ -139,6 +150,29 @@ def update_challenge(challenge_id: int, payload: ChallengeUpdate) -> Challenge:
         if payload.required_users is not None:
             fields.append("required_users = ?")
             values.append(payload.required_users)
+        if "involved_users" in sent:
+            fields.append("involved_users = ?")
+            values.append(payload.involved_users)
+        if "repeatable" in sent and payload.repeatable is not None:
+            fields.append("repeatable = ?")
+            values.append(int(payload.repeatable))
+
+        # involved_users >= required_users si ambos quedan definidos tras el update.
+        new_required = (
+            payload.required_users
+            if payload.required_users is not None
+            else row["required_users"]
+        )
+        new_involved = (
+            payload.involved_users
+            if "involved_users" in sent
+            else row["involved_users"]
+        )
+        if new_involved is not None and new_involved < new_required:
+            raise HTTPException(
+                status_code=422,
+                detail="Las personas involucradas no pueden ser menos que las que realizan el reto.",
+            )
 
         if fields:
             values.append(challenge_id)
@@ -251,15 +285,20 @@ def draw(payload: DrawRequest) -> DrawResult:
                     )
 
         # ----- Compute eligible challenges -----
+        # Una carta es elegible si no se ha usado o es repetible (puede salir
+        # varias veces en la sesión). El umbral de personas requeridas es el
+        # nº de involucradas si está definido, si no el nº que la realizan.
         if total_users == 0:
-            # Case 1: ignore required_users.
+            # Case 1: no hay usuarios -> se ignora el requisito de personas.
             eligible_rows = conn.execute(
-                "SELECT * FROM challenges WHERE is_used = 0"
+                "SELECT * FROM challenges WHERE (is_used = 0 OR repeatable = 1)"
             ).fetchall()
         else:
-            # Case 2: also require required_users <= len(pool).
+            # Case 2: además COALESCE(involved_users, required_users) <= len(pool).
             eligible_rows = conn.execute(
-                "SELECT * FROM challenges WHERE is_used = 0 AND required_users <= ?",
+                "SELECT * FROM challenges "
+                "WHERE (is_used = 0 OR repeatable = 1) "
+                "AND COALESCE(involved_users, required_users) <= ?",
                 (len(pool),),
             ).fetchall()
 
@@ -274,23 +313,33 @@ def draw(payload: DrawRequest) -> DrawResult:
         chosen = challenge_row_to_dict(chosen_row)
 
         # ----- Assign users (random, no repeats within this draw) -----
+        # Solo se asignan usuarios con nombre a quienes REALIZAN el reto; el
+        # resto de involucrados queda como participantes anónimos.
         assigned: list[dict] = []
+        anonymous_count = 0
         if total_users > 0 and chosen["required_users"] > 0:
             assigned = random.sample(pool, chosen["required_users"])
+            if chosen["involved_users"] is not None:
+                anonymous_count = max(
+                    0, chosen["involved_users"] - chosen["required_users"]
+                )
 
-        # ----- Mark chosen challenge as used -----
-        conn.execute(
-            "UPDATE challenges SET is_used = 1 WHERE id = ?", (chosen["id"],)
-        )
+        # ----- Mark chosen challenge as used (las repetibles no se marcan) -----
+        if not chosen["repeatable"]:
+            conn.execute(
+                "UPDATE challenges SET is_used = 1 WHERE id = ?", (chosen["id"],)
+            )
+            chosen["is_used"] = True
         conn.commit()
-        chosen["is_used"] = True
 
-        # ----- Remaining = eligible cards left with the SAME pool after this one -----
-        remaining = len(eligible_rows) - 1
+        # ----- Remaining = eligible cards left with the SAME pool after this one.
+        # Una carta repetible sigue disponible, así que no se descuenta.
+        remaining = len(eligible_rows) - (0 if chosen["repeatable"] else 1)
 
     return DrawResult(
         challenge=Challenge(**chosen),
         assigned_users=[User(**u) for u in assigned],
+        anonymous_count=anonymous_count,
         remaining=remaining,
     )
 

@@ -61,7 +61,12 @@ export function RetosPage() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <h3 className="truncate font-bold">{c.title}</h3>
-                    {c.is_used && (
+                    {c.repeatable && (
+                      <span className="shrink-0 rounded-full bg-neon-purple/20 px-2 py-0.5 text-[10px] font-semibold text-neon-purple">
+                        🔁 Repetible
+                      </span>
+                    )}
+                    {c.is_used && !c.repeatable && (
                       <span className="shrink-0 rounded-full bg-rose-500/20 px-2 py-0.5 text-[10px] font-semibold text-rose-200">
                         Usado
                       </span>
@@ -75,6 +80,12 @@ export function RetosPage() {
                 </div>
                 <span className="shrink-0 rounded-full bg-neon-purple/20 px-3 py-1 text-xs font-bold text-neon-purple">
                   👥 {c.required_users}
+                  {c.involved_users != null && (
+                    <span className="text-neon-purple/70">
+                      {' '}
+                      / {c.involved_users}
+                    </span>
+                  )}
                 </span>
               </div>
               <div className="mt-3 flex justify-end gap-2">
@@ -150,11 +161,16 @@ function ChallengeForm({
     title: string
     description: string
     required_users: number
+    involved_users: number | null
+    repeatable: boolean
   }) => Promise<void>
 }) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [players, setPlayers] = useState(1)
+  // Campo opcional: se guarda como texto para poder dejarlo vacío.
+  const [involved, setInvolved] = useState('')
+  const [repeatable, setRepeatable] = useState(false)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -164,6 +180,10 @@ function ChallengeForm({
       setTitle(editing?.title ?? '')
       setDescription(editing?.description ?? '')
       setPlayers(editing?.required_users ?? 1)
+      setInvolved(
+        editing?.involved_users != null ? String(editing.involved_users) : '',
+      )
+      setRepeatable(editing?.repeatable ?? false)
       setError('')
     }
   }, [open, editing])
@@ -175,7 +195,13 @@ function ChallengeForm({
       return
     }
     if (players < 1) {
-      setError('El nº de jugadores debe ser al menos 1.')
+      setError('El nº de personas que realizan el reto debe ser al menos 1.')
+      return
+    }
+    const involvedTrimmed = involved.trim()
+    const involvedValue = involvedTrimmed === '' ? null : parseInt(involvedTrimmed, 10)
+    if (involvedValue != null && (Number.isNaN(involvedValue) || involvedValue < players)) {
+      setError('Las personas involucradas no pueden ser menos que las que lo realizan.')
       return
     }
     setSaving(true)
@@ -184,6 +210,8 @@ function ChallengeForm({
         title: title.trim(),
         description: description.trim(),
         required_users: players,
+        involved_users: involvedValue,
+        repeatable,
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al guardar.')
@@ -222,20 +250,57 @@ function ChallengeForm({
             placeholder="Detalles del reto (opcional)"
           />
         </div>
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-300">
-            Nº de jugadores
-          </label>
-          <input
-            type="number"
-            min={1}
-            className="input"
-            value={players}
-            onChange={(e) =>
-              setPlayers(Math.max(1, parseInt(e.target.value || '1', 10)))
-            }
-          />
+        <div className="flex gap-3">
+          <div className="flex-1">
+            <label className="mb-1.5 block text-sm font-medium text-slate-300">
+              Realizan el reto
+            </label>
+            <input
+              type="number"
+              min={1}
+              className="input"
+              value={players}
+              onChange={(e) =>
+                setPlayers(Math.max(1, parseInt(e.target.value || '1', 10)))
+              }
+            />
+          </div>
+          <div className="flex-1">
+            <label className="mb-1.5 block text-sm font-medium text-slate-300">
+              Involucrados
+            </label>
+            <input
+              type="number"
+              min={players}
+              className="input"
+              value={involved}
+              onChange={(e) => setInvolved(e.target.value)}
+              placeholder="Opcional"
+            />
+          </div>
         </div>
+        <p className="-mt-2 text-xs text-slate-500">
+          Solo se asignan personas a quienes lo realizan; el resto de involucrados
+          participan de forma anónima. Si lo dejas vacío solo cuentan los que lo
+          realizan.
+        </p>
+
+        <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl bg-white/5 px-4 py-3">
+          <span className="flex flex-col">
+            <span className="text-sm font-medium text-slate-200">
+              🔁 Repetible
+            </span>
+            <span className="text-xs text-slate-500">
+              Puede salir más de una vez en la misma sesión.
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            className="h-5 w-5 accent-neon-purple"
+            checked={repeatable}
+            onChange={(e) => setRepeatable(e.target.checked)}
+          />
+        </label>
         {error && <p className="text-sm text-rose-300">{error}</p>}
         <div className="mt-1 flex gap-3">
           <button type="button" onClick={onClose} className="btn-ghost flex-1">

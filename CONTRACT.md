@@ -6,7 +6,7 @@ UI **en español**. Tema oscuro, moderno, "chulo".
 
 ## Arquitectura / servicios (docker compose)
 - `api`  → FastAPI + uvicorn, escucha en **0.0.0.0:8000** dentro del contenedor.
-- `web`  → React (Vite build) servido por **nginx** en el puerto 80 (expuesto en host **8080**).
+- `web`  → React (Vite build) servido por **nginx** en el puerto 80 (expuesto en host **8050**).
            nginx hace proxy de `/api/` → `http://api:8000/api/`.
 - DB: **SQLite** en `/data/retobox.db`. Volumen `retobox-data` montado en `/data`.
 - Variable backend: `DATABASE_PATH` (default `/data/retobox.db`).
@@ -17,8 +17,10 @@ UI **en español**. Tema oscuro, moderno, "chulo".
 id: int
 title: str            # obligatorio
 description: str       # puede ser ""
-required_users: int    # >= 1, nº de jugadores que hacen el reto
-is_used: bool          # default false; true cuando ya ha salido en la sesión
+required_users: int    # >= 1, nº de personas que REALIZAN el reto (se les asigna usuario)
+involved_users: int|null  # opcional, nº TOTAL de personas involucradas (realizan + participan)
+repeatable: bool       # default false; si true la carta puede salir varias veces en la sesión
+is_used: bool          # default false; true cuando ya ha salido en la sesión (las repetibles nunca se marcan)
 created_at: str        # ISO 8601
 ```
 ### User
@@ -32,8 +34,8 @@ color: str             # hex "#RRGGBB" (avatar de color)
 Todas las respuestas en JSON. CORS abierto (`*`) en el backend.
 
 - `GET    /api/challenges`            → `Challenge[]`
-- `POST   /api/challenges`            body `{title, description?, required_users}` → `Challenge` (201)
-- `PUT    /api/challenges/{id}`       body `{title?, description?, required_users?}` → `Challenge`
+- `POST   /api/challenges`            body `{title, description?, required_users, involved_users?, repeatable?}` → `Challenge` (201)
+- `PUT    /api/challenges/{id}`       body `{title?, description?, required_users?, involved_users?, repeatable?}` → `Challenge`
 - `DELETE /api/challenges/{id}`       → 204
 - `GET    /api/users`                 → `User[]`
 - `POST   /api/users`                 body `{name, color?}` (color opcional; backend asigna uno si falta) → `User` (201)
@@ -47,7 +49,8 @@ Todas las respuestas en JSON. CORS abierto (`*`) en el backend.
 ```
 {
   challenge: Challenge,
-  assigned_users: User[],   # vacío si no hay usuarios registrados
+  assigned_users: User[],   # los que REALIZAN el reto; vacío si no hay usuarios registrados
+  anonymous_count: int,     # participantes adicionales anónimos (involved_users - required_users)
   remaining: int            # cartas elegibles que aún quedan tras esta (informativo)
 }
 ```
@@ -57,23 +60,30 @@ Sea `pool` el conjunto de usuarios considerados:
 - modo `"random"`  → `pool` = TODOS los usuarios registrados.
 - modo `"selected"`→ `pool` = usuarios cuyos id están en `selected_user_ids`.
 
-Elegibilidad de cartas (`eligible`):
-1. **Si NO hay usuarios registrados en el sistema** (0 users): `eligible` = retos con `is_used=false`
-   (se ignora `required_users`). `assigned_users = []`.
-2. **Si hay usuarios** (modo random o selected): `eligible` = retos con `is_used=false`
-   **Y** `required_users <= len(pool)`.
+Sea `needed = involved_users` si está definido, si no `required_users` (umbral de personas
+que deben estar presentes para que la carta sea jugable).
+
+Elegibilidad de cartas (`eligible`): una carta cuenta si **no está usada O es repetible**, y además:
+1. **Si NO hay usuarios registrados en el sistema** (0 users): se ignora `needed`. `assigned_users = []`.
+2. **Si hay usuarios** (modo random o selected): además `needed <= len(pool)`.
 
 Acción:
 - Si `eligible` está vacío → **HTTP 409** con `{detail: "No quedan retos disponibles. Reinicia la sesión."}`
 - Si no: elegir un reto aleatorio de `eligible`. Asignar `required_users` usuarios elegidos
-  al azar de `pool` (sin repetir). Marcar el reto como `is_used=true`. Devolver `DrawResult`.
+  al azar de `pool` (sin repetir) — solo los que REALIZAN el reto. El resto de involucrados
+  (`involved_users - required_users`, si procede) se devuelve como `anonymous_count` (anónimos).
+  Marcar el reto como `is_used=true` **salvo que sea repetible** (las repetibles no se marcan y
+  pueden volver a salir). Devolver `DrawResult`.
 - modo `selected` con `selected_user_ids` vacío o nulo → tratar como error 400 `{detail:"Selecciona al menos un usuario."}`
   (salvo que no haya usuarios en el sistema, entonces aplica el caso 1).
 
-`remaining` = nº de cartas que seguirían siendo elegibles con el mismo `pool` tras marcar esta.
+`remaining` = nº de cartas que seguirían siendo elegibles con el mismo `pool` tras esta tirada
+(una carta repetible sigue contando, no se descuenta).
 
 ## Reglas de validación
 - `required_users` entero >= 1 (rechazar < 1 con 422/400).
+- `involved_users` opcional; si se envía, entero >= 1 y **>= `required_users`** (rechazar con 422).
+  En `PUT` enviar `null` lo limpia (vuelve a "solo cuenta `required_users`").
 - `title` no vacío (rechazar vacío con 422/400).
 - Color usuario: si no se envía, backend elige de una paleta agradable.
 

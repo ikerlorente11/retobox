@@ -1,6 +1,6 @@
 """Pydantic schemas reflecting the shared CONTRACT.md data model."""
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 # ---------------------------------------------------------------------------
@@ -11,7 +11,13 @@ class Challenge(BaseModel):
     id: int
     title: str
     description: str = ""
+    # Personas que REALIZAN el reto (se les asigna un usuario con nombre).
     required_users: int
+    # Personas TOTALES involucradas (realizan + participan). Opcional: si es
+    # None solo se tiene en cuenta required_users para la elegibilidad.
+    involved_users: int | None = None
+    # Si es True la carta puede salir más de una vez en la misma sesión.
+    repeatable: bool = False
     is_used: bool = False
     created_at: str
 
@@ -24,7 +30,10 @@ class User(BaseModel):
 
 class DrawResult(BaseModel):
     challenge: Challenge
+    # Usuarios con nombre asignados (los que realizan el reto).
     assigned_users: list[User]
+    # Participantes adicionales que quedan anónimos (involved - required).
+    anonymous_count: int = 0
     remaining: int
 
 
@@ -51,6 +60,8 @@ class ChallengeCreate(BaseModel):
     title: str
     description: str = ""
     required_users: int = Field(..., ge=1)
+    involved_users: int | None = Field(default=None, ge=1)
+    repeatable: bool = False
 
     @field_validator("title")
     @classmethod
@@ -59,11 +70,26 @@ class ChallengeCreate(BaseModel):
             raise ValueError("title no puede estar vacío")
         return v.strip()
 
+    @model_validator(mode="after")
+    def involved_ge_required(self) -> "ChallengeCreate":
+        if (
+            self.involved_users is not None
+            and self.involved_users < self.required_users
+        ):
+            raise ValueError(
+                "involved_users no puede ser menor que required_users"
+            )
+        return self
+
 
 class ChallengeUpdate(BaseModel):
     title: str | None = None
     description: str | None = None
     required_users: int | None = Field(default=None, ge=1)
+    # involved_users es nullable de forma intencionada: enviar null lo limpia.
+    # Para distinguir "no enviado" de "null" se usa model_fields_set en la ruta.
+    involved_users: int | None = Field(default=None, ge=1)
+    repeatable: bool | None = None
 
     @field_validator("title")
     @classmethod

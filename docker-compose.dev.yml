@@ -7,7 +7,7 @@
 # sin reconstruir la imagen.
 #
 # El despliegue de PRODUCCIÓN sigue en docker-compose.yml (build optimizado,
-# nginx en :8080). Nombre de proyecto distinto (retobox-dev) para que dev y prod
+# nginx en :8050). Nombre de proyecto distinto (retobox-dev) para que dev y prod
 # coexistan sin pisarse contenedores ni volúmenes.
 
 name: retobox-dev

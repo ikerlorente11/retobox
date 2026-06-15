@@ -26,7 +26,7 @@ manualmente. Pensada para usar en el móvil en fiestas.
 ```bash
 docker compose up -d --build
 ```
-Abre **http://localhost:8080**. Build optimizado (nginx sirve la SPA).
+Abre **http://localhost:8050**. Build optimizado (nginx sirve la SPA).
 **Arranca vacío**: solo aparecen los retos que añadas desde la app. Datos en el
 volumen `retobox_retobox-data`.
 
@@ -45,7 +45,7 @@ archivos en `./frontend` o `./backend` y se recargan solos, sin reconstruir.
 | Entorno | Puerto | Retos de ejemplo |
 |---------|--------|------------------|
 | Desarrollo (`docker-compose.dev.yml`) | 5173 | ✅ Sí (`SEED_DATA=1`) |
-| Producción (`docker-compose.yml`)     | 8080 | ❌ No (arranca vacío) |
+| Producción (`docker-compose.yml`)     | 8050 | ❌ No (arranca vacío) |
 
 ## 🧑‍💻 Desarrollo local (sin Docker)
 Backend:
@@ -65,7 +65,7 @@ npm run dev   # http://localhost:5173 (proxya /api a :8000)
 ## 📁 Estructura
 ```
 retobox/
-├── docker-compose.yml          # despliegue de producción (nginx + api), :8080
+├── docker-compose.yml          # despliegue de producción (nginx + api), :8050
 ├── docker-compose.dev.yml      # desarrollo con hot reload (Vite + uvicorn --reload), :5173
 ├── CONTRACT.md                 # contrato compartido (modelo + API + lógica de sorteo)
 ├── backend/                    # FastAPI + SQLite

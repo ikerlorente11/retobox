@@ -1,4 +1,4 @@
-# Despliegue de PRODUCCIÓN: build optimizado, nginx sirve la SPA en :8080.
+# Despliegue de PRODUCCIÓN: build optimizado, nginx sirve la SPA en :8050.
 # NO se cargan retos de ejemplo (SEED_DATA ausente) -> arranca vacío; solo
 # aparecen los retos que se añadan desde la app.
 name: retobox
@@ -23,7 +23,7 @@ services:
   web:
     build: ./frontend
     ports:
-      - "8080:80"
+      - "8050:80"
     depends_on:
       - api
     restart: unless-stopped

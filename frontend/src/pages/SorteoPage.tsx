@@ -265,6 +265,12 @@ export function SorteoPage({ goTo }: Props) {
                         {u.name}
                       </span>
                     ))}
+                    {result.anonymous_count > 0 && (
+                      <span className="flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-1 text-xs text-slate-400">
+                        🎭 +{result.anonymous_count} anónimo
+                        {result.anonymous_count > 1 ? 's' : ''}
+                      </span>
+                    )}
                   </div>
                 )}
                 <p className="mt-3 text-xs text-slate-500">

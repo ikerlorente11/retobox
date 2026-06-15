@@ -90,6 +90,82 @@ def test_delete_challenge(client):
 
 
 # --------------------------------------------------------------------------
+# Challenges — repeatable & involved_users
+# --------------------------------------------------------------------------
+
+def test_create_challenge_defaults_repeatable_false_involved_null(client):
+    c = make_challenge(client)
+    assert c["repeatable"] is False
+    assert c["involved_users"] is None
+
+
+def test_create_challenge_with_involved_and_repeatable(client):
+    c = make_challenge(client, required_users=2, involved_users=5, repeatable=True)
+    assert c["required_users"] == 2
+    assert c["involved_users"] == 5
+    assert c["repeatable"] is True
+
+
+def test_create_challenge_involved_below_required_422(client):
+    r = client.post(
+        "/api/challenges",
+        json={"title": "x", "required_users": 3, "involved_users": 2},
+    )
+    assert r.status_code == 422
+
+
+def test_update_can_clear_involved_users_with_null(client):
+    c = make_challenge(client, required_users=1, involved_users=4)
+    r = client.put(f"/api/challenges/{c['id']}", json={"involved_users": None})
+    assert r.status_code == 200
+    assert r.json()["involved_users"] is None
+
+
+def test_update_involved_below_required_422(client):
+    c = make_challenge(client, required_users=2)
+    assert (
+        client.put(
+            f"/api/challenges/{c['id']}", json={"involved_users": 1}
+        ).status_code
+        == 422
+    )
+
+
+def test_repeatable_challenge_can_be_drawn_again(client):
+    make_challenge(client, title="Repe", repeatable=True)
+    # Sin usuarios -> elegible siempre; nunca se marca como usada.
+    for _ in range(3):
+        body = client.post("/api/draw", json={"mode": "random"}).json()
+        assert body["challenge"]["title"] == "Repe"
+        assert body["challenge"]["is_used"] is False
+        assert body["remaining"] == 1  # sigue contando como disponible
+    assert client.get("/api/stats").json()["used"] == 0
+
+
+def test_draw_eligibility_uses_involved_users(client):
+    # 2 realizan, 4 involucradas -> hacen falta 4 presentes para ser elegible.
+    make_challenge(client, title="Cuatro", required_users=2, involved_users=4)
+    make_user(client, "A")
+    make_user(client, "B")
+    make_user(client, "C")
+    # Solo 3 presentes -> no elegible
+    assert client.post("/api/draw", json={"mode": "random"}).status_code == 409
+    make_user(client, "D")  # ahora 4
+    body = client.post("/api/draw", json={"mode": "random"}).json()
+    assert body["challenge"]["title"] == "Cuatro"
+    # Solo se asignan los 2 que realizan; el resto anónimo.
+    assert len(body["assigned_users"]) == 2
+    assert body["anonymous_count"] == 2
+
+
+def test_draw_anonymous_count_zero_without_involved(client):
+    make_challenge(client, title="Solo", required_users=1)
+    make_user(client, "A")
+    body = client.post("/api/draw", json={"mode": "random"}).json()
+    assert body["anonymous_count"] == 0
+
+
+# --------------------------------------------------------------------------
 # Users
 # --------------------------------------------------------------------------
 

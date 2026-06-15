@@ -44,15 +44,23 @@ def client():
 
 # --- helpers -------------------------------------------------------------
 
-def make_challenge(client, title="Reto de prueba", description="", required_users=1):
-    r = client.post(
-        "/api/challenges",
-        json={
-            "title": title,
-            "description": description,
-            "required_users": required_users,
-        },
-    )
+def make_challenge(
+    client,
+    title="Reto de prueba",
+    description="",
+    required_users=1,
+    involved_users=None,
+    repeatable=False,
+):
+    body = {
+        "title": title,
+        "description": description,
+        "required_users": required_users,
+        "repeatable": repeatable,
+    }
+    if involved_users is not None:
+        body["involved_users"] = involved_users
+    r = client.post("/api/challenges", json=body)
     assert r.status_code == 201, r.text
     return r.json()
 

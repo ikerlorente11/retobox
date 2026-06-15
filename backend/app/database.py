@@ -39,7 +39,12 @@ def get_connection() -> sqlite3.Connection:
 
 
 def init_db() -> None:
-    """Create tables if they do not exist."""
+    """Create tables if they do not exist and run lightweight migrations.
+
+    Migrations are additive ``ALTER TABLE ADD COLUMN`` statements guarded by a
+    column-existence check, so they are idempotent and never drop or rewrite
+    existing rows. This is safe to run on every startup against a live DB.
+    """
     conn = get_connection()
     with _lock:
         conn.executescript(
@@ -49,6 +54,8 @@ def init_db() -> None:
                 title          TEXT    NOT NULL,
                 description    TEXT    NOT NULL DEFAULT '',
                 required_users INTEGER NOT NULL DEFAULT 1,
+                involved_users INTEGER,
+                repeatable     INTEGER NOT NULL DEFAULT 0,
                 is_used        INTEGER NOT NULL DEFAULT 0,
                 created_at     TEXT    NOT NULL
             );
@@ -63,6 +70,22 @@ def init_db() -> None:
                 ON challenges(is_used);
             """
         )
+
+        # --- Additive migrations for databases created before these columns ---
+        existing = {
+            r["name"]
+            for r in conn.execute("PRAGMA table_info(challenges)").fetchall()
+        }
+        if "involved_users" not in existing:
+            # Nullable: cuando está vacío solo cuenta required_users.
+            conn.execute(
+                "ALTER TABLE challenges ADD COLUMN involved_users INTEGER"
+            )
+        if "repeatable" not in existing:
+            conn.execute(
+                "ALTER TABLE challenges ADD COLUMN repeatable INTEGER NOT NULL DEFAULT 0"
+            )
+
         conn.commit()
 
 
@@ -76,6 +99,8 @@ def challenge_row_to_dict(row: sqlite3.Row) -> dict:
         "title": row["title"],
         "description": row["description"],
         "required_users": row["required_users"],
+        "involved_users": row["involved_users"],
+        "repeatable": bool(row["repeatable"]),
         "is_used": bool(row["is_used"]),
         "created_at": row["created_at"],
     }
