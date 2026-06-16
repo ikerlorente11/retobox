@@ -1,8 +1,13 @@
 # 🎲 RetoBox
 
-App web de **retos al azar** tipo tragaperras / dado, con usuarios y reglas de cuántos
+App de **retos al azar** tipo tragaperras / dado, con usuarios y reglas de cuántos
 jugadores necesita cada reto. Las cartas **no se repiten entre sesiones** hasta que reinicias
 manualmente. Pensada para usar en el móvil en fiestas.
+
+Disponible como **app web** (React + FastAPI) y como **app móvil Android offline**
+(Expo / React Native), que comparten la lógica de negocio vía el paquete
+[`@retobox/shared`](./shared). La app móvil funciona con su **propia base de datos
+SQLite**, sin backend ni conexión. Ver [`mobile/README.md`](./mobile/README.md).
 
 ## ✨ Características
 - 🎰 Revelado animado con dos estilos elegibles: **máquina tragaperras** y **dado 3D**.
@@ -74,17 +79,24 @@ retobox/
 ├── docker-compose.yml          # despliegue de producción (nginx + api), :8050
 ├── docker-compose.dev.yml      # desarrollo con hot reload (Vite + uvicorn --reload), :5173
 ├── CONTRACT.md                 # contrato compartido (modelo + API + lógica de sorteo)
-├── backend/                    # FastAPI + SQLite
+├── backend/                    # FastAPI + SQLite (web)
 │   ├── app/                    # main.py, database.py, models.py, seed.py
 │   ├── tests/                  # suite pytest (77 tests del contrato)
 │   ├── requirements.txt
 │   ├── requirements-dev.txt    # + pytest, httpx
 │   └── Dockerfile
-└── frontend/                   # React + Vite + Tailwind
-    ├── src/                    # pages/, components/, store.ts, api.ts, types.ts
-    ├── Dockerfile              # build de producción (multi-stage -> nginx)
-    ├── Dockerfile.dev          # dev server con HMR
-    └── nginx.conf              # SPA + proxy /api
+├── frontend/                   # React + Vite + Tailwind (web)
+│   ├── src/                    # pages/, components/, store.ts, api.ts, types.ts
+│   ├── Dockerfile              # build de producción (multi-stage -> nginx)
+│   ├── Dockerfile.dev          # dev server con HMR
+│   └── nginx.conf              # SPA + proxy /api
+├── shared/                     # @retobox/shared: tipos + lógica de negocio en TS
+│   ├── src/                    # draw.ts, validation.ts, repository.ts, seed.ts…
+│   └── tests/                  # 26 tests de paridad con el backend
+└── mobile/                     # Expo / React Native (Android offline, SQLite local)
+    ├── app/                    # rutas expo-router (tabs)
+    ├── src/                    # db/, ui/, components/, store.ts, theme.ts
+    └── eas.json                # perfiles de build (APK/AAB) para Play Store
 ```
 
 ## 🔌 API (resumen)

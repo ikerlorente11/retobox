@@ -1,9 +1,15 @@
 # RetoBox — Contrato compartido (FUENTE DE VERDAD)
 
-App web de retos al azar tipo tragaperras/dado, con usuarios y reglas de cuántos
+App de retos al azar tipo tragaperras/dado, con usuarios y reglas de cuántos
 jugadores necesita cada reto. Las cartas no se repiten entre sesiones hasta resetear.
 UI **bilingüe (castellano por defecto / inglés)**, con selector de idioma en Ajustes.
 Tema oscuro, moderno, "chulo".
+
+> ⚠️ **Doble implementación de la lógica.** Estas reglas están implementadas dos
+> veces: en el **backend Python** (`backend/app/`, para la web) y en el paquete TS
+> **`@retobox/shared`** (`shared/src/`, para la app móvil offline). Cualquier cambio
+> de reglas debe aplicarse en **ambos** y mantener verdes los dos suites de tests
+> (`backend/tests/` y `shared/tests/`).
 
 ## Arquitectura / servicios (docker compose)
 - `api`  → FastAPI + uvicorn, escucha en **0.0.0.0:8000** dentro del contenedor.
