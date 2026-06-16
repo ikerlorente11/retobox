@@ -1,4 +1,5 @@
 // Utilidades para exportar/importar retos a un fichero JSON compartible.
+import { loadLang, translate } from './i18n'
 import type { Challenge, ChallengeInput } from '../types'
 
 const APP_TAG = 'retobox'
@@ -46,7 +47,7 @@ export function parseRetosFile(text: string): ChallengeInput[] {
   try {
     parsed = JSON.parse(text)
   } catch {
-    throw new Error('El fichero no es un JSON válido.')
+    throw new Error(translate(loadLang(), 'file.invalidJson'))
   }
 
   const rawList = Array.isArray(parsed)
@@ -56,7 +57,7 @@ export function parseRetosFile(text: string): ChallengeInput[] {
       : null
 
   if (!Array.isArray(rawList)) {
-    throw new Error('El fichero no contiene una lista de retos.')
+    throw new Error(translate(loadLang(), 'file.noRetosList'))
   }
 
   const challenges: ChallengeInput[] = []
@@ -83,7 +84,7 @@ export function parseRetosFile(text: string): ChallengeInput[] {
   }
 
   if (challenges.length === 0) {
-    throw new Error('El fichero no contiene ningún reto válido.')
+    throw new Error(translate(loadLang(), 'file.noRetosValid'))
   }
   return challenges
 }

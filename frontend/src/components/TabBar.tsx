@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import type { ComponentType, SVGProps } from 'react'
 import { DiceIcon, ListIcon, SettingsIcon, ShuffleIcon, UsersIcon } from './icons'
-import { useT } from '../lib/i18n'
+import { useT } from '../lib/useT'
 
 export type Tab = 'sorteo' | 'retos' | 'usuarios' | 'combos' | 'ajustes'
 
@@ -26,7 +26,7 @@ export function TabBar({ active, onChange }: Props) {
   const t = useT()
   return (
     <nav
-      aria-label="Navegación principal"
+      aria-label={t('aria.nav')}
       className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.6rem,env(safe-area-inset-bottom))] pt-2"
     >
       <div className="glass-strong mx-auto flex max-w-md items-center justify-around rounded-3xl p-1.5 shadow-glow">

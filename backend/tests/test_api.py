@@ -575,3 +575,217 @@ def test_stats_counts(client):
     client.post("/api/draw", json={"mode": "random"})
     stats = client.get("/api/stats").json()
     assert stats == {"total": 3, "used": 1, "available": 2, "users": 1}
+
+
+# --------------------------------------------------------------------------
+# Colecciones — casos de error y aristas
+# --------------------------------------------------------------------------
+
+def test_create_challenge_collection_not_found_404(client):
+    r = client.post(
+        "/api/challenges",
+        json={"title": "X", "required_users": 1, "collection_id": 99999},
+    )
+    assert r.status_code == 404
+
+
+def test_update_collection_not_found_404(client):
+    assert client.put("/api/collections/99999", json={"name": "X"}).status_code == 404
+
+
+def test_delete_collection_not_found_404(client):
+    assert client.delete("/api/collections/99999").status_code == 404
+
+
+def test_reset_global_affects_all_collections(client):
+    col1 = make_collection(client, "Uno")
+    col2 = make_collection(client, "Dos")
+    make_challenge(client, title="A", collection_id=col1["id"])
+    make_challenge(client, title="B", collection_id=col2["id"])
+    client.post("/api/draw", json={"mode": "random", "collection_id": col1["id"]})
+    client.post("/api/draw", json={"mode": "random", "collection_id": col2["id"]})
+    r = client.post("/api/reset")  # sin collection_id -> global
+    assert r.json()["reset"] == 2
+    assert client.get("/api/stats").json()["used"] == 0
+
+
+def test_draw_collection_and_involved_threshold(client):
+    col = make_collection(client, "C")
+    make_challenge(
+        client, title="Need4", required_users=2, involved_users=4, collection_id=col["id"]
+    )
+    for n in ("A", "B", "C"):
+        make_user(client, n)
+    # 3 presentes, hacen falta 4 -> 409 incluso filtrando por colección.
+    assert (
+        client.post(
+            "/api/draw", json={"mode": "random", "collection_id": col["id"]}
+        ).status_code
+        == 409
+    )
+    make_user(client, "D")
+    body = client.post(
+        "/api/draw", json={"mode": "random", "collection_id": col["id"]}
+    ).json()
+    assert body["challenge"]["title"] == "Need4"
+
+
+def test_migration_backfills_null_collection_id(client):
+    """Un reto sin colección (BD previa) se reasigna a la por defecto en init_db."""
+    from app.database import _lock, get_connection, init_db
+
+    conn = get_connection()
+    with _lock:
+        conn.execute(
+            "INSERT INTO challenges "
+            "(title, required_users, is_used, created_at, collection_id) "
+            "VALUES ('Sin coleccion', 1, 0, '2020-01-01T00:00:00Z', NULL)"
+        )
+        conn.commit()
+    init_db()  # ejecuta el backfill
+    rows = client.get("/api/challenges").json()
+    c = next(c for c in rows if c["title"] == "Sin coleccion")
+    assert c["collection_id"] is not None
+
+
+# --------------------------------------------------------------------------
+# Import retos — colección destino y aristas
+# --------------------------------------------------------------------------
+
+def test_import_dedup_is_per_collection(client):
+    col1 = make_collection(client, "Uno")
+    col2 = make_collection(client, "Dos")
+    make_challenge(client, title="Repe", collection_id=col1["id"])
+    # El mismo título en OTRA colección no es duplicado -> se inserta.
+    r = client.post(
+        "/api/challenges/import",
+        json={"challenges": [{"title": "Repe", "required_users": 1}], "collection_id": col2["id"]},
+    )
+    assert r.json() == {"imported": 1, "skipped": 0}
+    # Reimportar a col2 -> ahora sí es duplicado en esa colección.
+    r2 = client.post(
+        "/api/challenges/import",
+        json={"challenges": [{"title": "Repe", "required_users": 1}], "collection_id": col2["id"]},
+    )
+    assert r2.json() == {"imported": 0, "skipped": 1}
+
+
+def test_import_collection_not_found_404(client):
+    r = client.post(
+        "/api/challenges/import",
+        json={"challenges": [{"title": "X", "required_users": 1}], "collection_id": 99999},
+    )
+    assert r.status_code == 404
+
+
+def test_import_without_collection_uses_default(client):
+    r = client.post(
+        "/api/challenges/import",
+        json={"challenges": [{"title": "Def", "required_users": 1}]},
+    )
+    assert r.json()["imported"] == 1
+    titles = [c["title"] for c in client.get("/api/challenges").json()]
+    assert "Def" in titles
+
+
+def test_import_empty_lists(client):
+    assert client.post("/api/challenges/import", json={"challenges": []}).json() == {
+        "imported": 0,
+        "skipped": 0,
+    }
+    assert client.post("/api/word-groups/import", json={"groups": []}).json() == {
+        "imported": 0,
+        "skipped": 0,
+    }
+
+
+# --------------------------------------------------------------------------
+# Validaciones y aristas adicionales
+# --------------------------------------------------------------------------
+
+def test_update_required_above_involved_422(client):
+    c = make_challenge(client, required_users=1, involved_users=2)
+    r = client.put(f"/api/challenges/{c['id']}", json={"required_users": 3})
+    assert r.status_code == 422
+
+
+def test_update_repeatable_via_put(client):
+    c = make_challenge(client, repeatable=False)
+    r = client.put(f"/api/challenges/{c['id']}", json={"repeatable": True})
+    assert r.status_code == 200 and r.json()["repeatable"] is True
+
+
+def test_draw_selected_nonexistent_ids_400(client):
+    make_challenge(client)
+    make_user(client, "A")
+    r = client.post(
+        "/api/draw", json={"mode": "selected", "selected_user_ids": [99999]}
+    )
+    assert r.status_code == 400
+
+
+def test_delete_user_not_found_404(client):
+    assert client.delete("/api/users/99999").status_code == 404
+
+
+def test_update_word_group_cleans_words(client):
+    g = client.post("/api/word-groups", json={"name": "G", "words": ["A"]}).json()
+    r = client.put(
+        f"/api/word-groups/{g['id']}",
+        json={"words": ["  Hola ", "hola", "", "Adiós"]},
+    )
+    assert r.json()["words"] == ["Hola", "Adiós"]
+
+
+def test_palette_wraps_after_full_rotation(client):
+    from app.main import COLOR_PALETTE
+
+    n = len(COLOR_PALETTE)
+    colors = [make_user(client, f"U{i}")["color"] for i in range(n + 1)]
+    # El usuario nº n+1 (índice n) repite el color del primero (count % len).
+    assert colors[n] == colors[0]
+
+
+def test_draw_random_ignores_selected_user_ids(client):
+    make_challenge(client, title="Solo", required_users=1)
+    make_user(client, "A")
+    make_user(client, "B")
+    # En modo random los selected_user_ids se ignoran (pool = todos).
+    body = client.post(
+        "/api/draw", json={"mode": "random", "selected_user_ids": [99999]}
+    ).json()
+    assert body["challenge"]["title"] == "Solo"
+    assert len(body["assigned_users"]) == 1
+
+
+def test_remaining_with_mixed_repeatable(client):
+    make_challenge(client, title="Rep", repeatable=True)
+    make_challenge(client, title="Normal")
+    # Tira hasta que salga la normal: en ese momento remaining=1 (queda la repetible).
+    for _ in range(30):
+        body = client.post("/api/draw", json={"mode": "random"}).json()
+        if body["challenge"]["title"] == "Normal":
+            assert body["remaining"] == 1
+            break
+    else:
+        raise AssertionError("La normal no salió en 30 tiradas")
+    # La normal queda usada -> solo la repetible es elegible.
+    body2 = client.post("/api/draw", json={"mode": "random"}).json()
+    assert body2["challenge"]["title"] == "Rep"
+
+
+def test_word_group_handles_corrupt_words_json(client):
+    """Ruta defensiva: si la columna words tiene JSON inválido, devuelve []."""
+    from app.database import _lock, get_connection
+
+    conn = get_connection()
+    with _lock:
+        conn.execute(
+            "INSERT INTO word_groups (name, words, created_at) "
+            "VALUES ('Corrupto', '{no es json', '2020-01-01T00:00:00Z')"
+        )
+        conn.commit()
+    g = next(
+        g for g in client.get("/api/word-groups").json() if g["name"] == "Corrupto"
+    )
+    assert g["words"] == []

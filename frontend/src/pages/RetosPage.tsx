@@ -8,7 +8,7 @@ import {
   PlusIcon,
   TrashIcon,
 } from '../components/icons'
-import { useT } from '../lib/i18n'
+import { useT } from '../lib/useT'
 import type { Challenge, Collection } from '../types'
 
 export function RetosPage() {
@@ -209,7 +209,7 @@ function ChallengeCard({
             onEdit()
           }}
           className="grid h-9 w-9 place-items-center rounded-xl bg-white/5 text-slate-300 hover:bg-white/10"
-          aria-label={`Editar ${c.title}`}
+          aria-label={`${t('common.edit')} ${c.title}`}
         >
           <EditIcon className="h-4 w-4" />
         </button>
@@ -219,7 +219,7 @@ function ChallengeCard({
             onDelete()
           }}
           className="grid h-9 w-9 place-items-center rounded-xl bg-rose-500/15 text-rose-200 hover:bg-rose-500/25"
-          aria-label={`Borrar ${c.title}`}
+          aria-label={`${t('common.delete')} ${c.title}`}
         >
           <TrashIcon className="h-4 w-4" />
         </button>
@@ -323,7 +323,7 @@ function CollectionSelector() {
                   <button
                     onClick={() => setForm({ mode: 'rename', id: c.id, name: c.name })}
                     className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-300 hover:bg-white/10"
-                    aria-label={`Renombrar ${c.name}`}
+                    aria-label={`${t('common.rename')} ${c.name}`}
                   >
                     <EditIcon className="h-4 w-4" />
                   </button>
@@ -331,7 +331,7 @@ function CollectionSelector() {
                     onClick={() => setConfirmDel(c)}
                     disabled={collections.length <= 1}
                     className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-rose-200 hover:bg-rose-500/20 disabled:opacity-30"
-                    aria-label={`Borrar ${c.name}`}
+                    aria-label={`${t('common.delete')} ${c.name}`}
                   >
                     <TrashIcon className="h-4 w-4" />
                   </button>

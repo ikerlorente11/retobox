@@ -6,7 +6,7 @@ import { Confetti } from '../components/Confetti'
 import { WordReel } from '../components/reveal/WordReel'
 import { EditIcon, PlusIcon, TrashIcon } from '../components/icons'
 import { playReveal } from '../lib/sound'
-import { useT } from '../lib/i18n'
+import { useT } from '../lib/useT'
 import type { RevealStyle, WordGroup } from '../types'
 
 interface ComboItem {
@@ -266,7 +266,7 @@ function GroupCard({
             }}
             disabled={empty}
             aria-pressed={active}
-            aria-label={`Seleccionar ${g.name}`}
+            aria-label={`${t('common.select')} ${g.name}`}
             className={`grid h-5 w-5 shrink-0 place-items-center rounded-md border text-[11px] transition ${
               active
                 ? 'border-transparent bg-neon-gradient text-white'
@@ -323,7 +323,7 @@ function GroupCard({
                   onEdit()
                 }}
                 className="grid h-8 w-8 place-items-center rounded-xl bg-white/5 text-slate-300 hover:bg-white/10"
-                aria-label={`Editar ${g.name}`}
+                aria-label={`${t('common.edit')} ${g.name}`}
               >
                 <EditIcon className="h-4 w-4" />
               </button>
@@ -333,7 +333,7 @@ function GroupCard({
                   onDelete()
                 }}
                 className="grid h-8 w-8 place-items-center rounded-xl bg-rose-500/15 text-rose-200 hover:bg-rose-500/25"
-                aria-label={`Borrar ${g.name}`}
+                aria-label={`${t('common.delete')} ${g.name}`}
               >
                 <TrashIcon className="h-4 w-4" />
               </button>
@@ -526,7 +526,7 @@ function GroupForm({
             className="input min-h-[180px] resize-y"
             value={wordsText}
             onChange={(e) => setWordsText(e.target.value)}
-            placeholder={'Cocina\nSalón\nJardín'}
+            placeholder={t('combos.wordsPh')}
           />
           <p className="mt-1.5 text-xs text-slate-500">{t('combos.wordsNote')}</p>
         </div>

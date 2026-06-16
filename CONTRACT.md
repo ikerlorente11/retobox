@@ -2,7 +2,8 @@
 
 App web de retos al azar tipo tragaperras/dado, con usuarios y reglas de cuántos
 jugadores necesita cada reto. Las cartas no se repiten entre sesiones hasta resetear.
-UI **en español**. Tema oscuro, moderno, "chulo".
+UI **bilingüe (castellano por defecto / inglés)**, con selector de idioma en Ajustes.
+Tema oscuro, moderno, "chulo".
 
 ## Arquitectura / servicios (docker compose)
 - `api`  → FastAPI + uvicorn, escucha en **0.0.0.0:8000** dentro del contenedor.
@@ -62,10 +63,11 @@ Todas las respuestas en JSON. CORS abierto (`*`) en el backend.
 - `POST   /api/challenges`            body `{title, description?, required_users, involved_users?, repeatable?, collection_id?}` → `Challenge` (201)
 - `PUT    /api/challenges/{id}`       body `{title?, description?, required_users?, involved_users?, repeatable?}` → `Challenge`
 - `DELETE /api/challenges/{id}`       → 204
-- `POST   /api/challenges/import`     body `{challenges: [{title, description?, required_users, involved_users?, repeatable?}]}` → `{imported: int, skipped: int}`
-                                       Importa retos evitando duplicados: se omite (cuenta en `skipped`) cualquier reto
-                                       cuyo título (sin espacios y sin distinguir mayúsculas) ya exista en la BD o se repita
-                                       dentro del propio fichero. Cada reto se valida igual que en `POST /api/challenges`.
+- `POST   /api/challenges/import`     body `{challenges: [{title, description?, required_users, involved_users?, repeatable?}], collection_id?}` → `{imported: int, skipped: int}`
+                                       Importa retos a una colección (`collection_id`, por defecto la colección por
+                                       defecto) evitando duplicados: se omite (cuenta en `skipped`) cualquier reto cuyo
+                                       título (sin espacios y sin distinguir mayúsculas) ya exista **en esa colección** o se
+                                       repita dentro del propio fichero. Cada reto se valida igual que en `POST /api/challenges`.
 - `GET    /api/users`                 → `User[]`
 - `POST   /api/users`                 body `{name, color?}` (color opcional; backend asigna uno si falta) → `User` (201)
 - `DELETE /api/users/{id}`            → 204
@@ -124,7 +126,7 @@ Acción:
 - Color usuario: si no se envía, backend elige de una paleta agradable.
 
 ## Seed inicial
-Al crear la BD vacía, insertar ~28 retos variados **en español** (fiesta/divertidos, sanos),
+Al crear la BD vacía, insertar 29 retos variados **en español** (fiesta/divertidos, sanos),
 con `required_users` mezclados (muchos 1 y 2, algunos 3 y 4). Sin usuarios por defecto.
 
 ## Tipos TS en frontend (deben reflejar lo de arriba)

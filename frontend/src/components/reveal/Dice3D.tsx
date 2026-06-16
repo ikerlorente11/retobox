@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import type { Challenge, User } from '../../types'
 import { Avatar } from '../Avatar'
 import { playReveal } from '../../lib/sound'
-import { useT } from '../../lib/i18n'
+import { useT } from '../../lib/useT'
 
 interface Props {
   challenge: Challenge

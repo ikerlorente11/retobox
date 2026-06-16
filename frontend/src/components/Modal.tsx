@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { type ReactNode, useEffect } from 'react'
+import { useT } from '../lib/useT'
 
 interface Props {
   open: boolean
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function Modal({ open, onClose, title, children }: Props) {
+  const t = useT()
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
@@ -46,7 +48,7 @@ export function Modal({ open, onClose, title, children }: Props) {
               <h2 className="text-lg font-bold">{title}</h2>
               <button
                 onClick={onClose}
-                aria-label="Cerrar"
+                aria-label={t('common.close')}
                 className="grid h-9 w-9 place-items-center rounded-full bg-white/5 hover:bg-white/10 text-slate-300"
               >
                 ✕

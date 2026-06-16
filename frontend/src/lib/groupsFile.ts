@@ -1,4 +1,5 @@
 // Utilidades para exportar/importar los grupos de palabras (Combos) a fichero.
+import { loadLang, translate } from './i18n'
 import type { WordGroup, WordGroupInput } from '../types'
 
 const APP_TAG = 'retobox'
@@ -36,7 +37,7 @@ export function parseGroupsFile(text: string): WordGroupInput[] {
   try {
     parsed = JSON.parse(text)
   } catch {
-    throw new Error('El fichero no es un JSON válido.')
+    throw new Error(translate(loadLang(), 'file.invalidJson'))
   }
 
   const rawList = Array.isArray(parsed)
@@ -46,7 +47,7 @@ export function parseGroupsFile(text: string): WordGroupInput[] {
       : null
 
   if (!Array.isArray(rawList)) {
-    throw new Error('El fichero no contiene una lista de grupos.')
+    throw new Error(translate(loadLang(), 'file.noGroupsList'))
   }
 
   const groups: WordGroupInput[] = []
@@ -62,7 +63,7 @@ export function parseGroupsFile(text: string): WordGroupInput[] {
   }
 
   if (groups.length === 0) {
-    throw new Error('El fichero no contiene ningún grupo válido.')
+    throw new Error(translate(loadLang(), 'file.noGroupsValid'))
   }
   return groups
 }

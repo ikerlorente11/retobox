@@ -47,6 +47,8 @@ function applyTheme(theme: Theme) {
 
 // Aplica el tema guardado nada más cargar (antes del primer render -> sin parpadeo).
 applyTheme(loadTheme())
+// Refleja el idioma en <html lang> para accesibilidad/SEO.
+document.documentElement.lang = loadLang()
 
 interface AppState {
   // datos
@@ -451,6 +453,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   setLang: (lang) => {
     localStorage.setItem(LANG_KEY, lang)
+    document.documentElement.lang = lang
     set({ lang })
   },
 }))

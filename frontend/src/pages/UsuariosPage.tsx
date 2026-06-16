@@ -5,7 +5,7 @@ import { Avatar } from '../components/Avatar'
 import { Modal } from '../components/Modal'
 import { PlusIcon, TrashIcon } from '../components/icons'
 import { USER_COLORS } from '../lib/colors'
-import { useT } from '../lib/i18n'
+import { useT } from '../lib/useT'
 import type { User } from '../types'
 
 export function UsuariosPage() {
@@ -82,7 +82,7 @@ export function UsuariosPage() {
               <button
                 onClick={() => setConfirmDel(u)}
                 className="grid h-9 w-9 place-items-center rounded-xl bg-rose-500/15 text-rose-200 hover:bg-rose-500/25"
-                aria-label={`Borrar ${u.name}`}
+                aria-label={`${t('common.delete')} ${u.name}`}
               >
                 <TrashIcon className="h-4 w-4" />
               </button>
@@ -121,7 +121,7 @@ export function UsuariosPage() {
                       : ''
                   }`}
                   style={{ background: c }}
-                  aria-label={`Color ${c}`}
+                  aria-label={`${t('aria.color')} ${c}`}
                 />
               ))}
             </div>

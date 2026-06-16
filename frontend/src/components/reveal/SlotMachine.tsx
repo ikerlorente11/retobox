@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import type { Challenge, User } from '../../types'
 import { Avatar } from '../Avatar'
 import { playReveal, playTick } from '../../lib/sound'
-import { useT } from '../../lib/i18n'
+import { useT } from '../../lib/useT'
 
 interface Props {
   challenge: Challenge
@@ -18,7 +18,7 @@ const SPINS = 6 // vueltas completas antes de parar
 
 // Construye la cinta del rodillo: muchas filas señuelo y el ganador al final
 function buildStrip(winner: string, decoys: string[]): string[] {
-  const pool = decoys.length ? decoys : ['Reto', 'Sorpresa', 'Prenda', 'Misión']
+  const pool = decoys.length ? decoys : [winner]
   const strip: string[] = []
   const total = SPINS * 5
   for (let i = 0; i < total; i++) {
@@ -38,7 +38,12 @@ export function SlotMachine({
   const t = useT()
   const controls = useAnimationControls()
   const strip = useMemo(
-    () => buildStrip(challenge.title, decoyTitles),
+    () =>
+      buildStrip(
+        challenge.title,
+        decoyTitles.length ? decoyTitles : t('reveal.decoys').split(','),
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [challenge.title, decoyTitles],
   )
   const tickRef = useRef<number | null>(null)

@@ -1,5 +1,5 @@
 // Cliente API — rutas relativas /api/... (mismo origen vía nginx en prod, proxy en dev)
-import { loadLang, translate } from './lib/i18n'
+import { loadLang, translate, translateApiError } from './lib/i18n'
 import type {
   Challenge,
   ChallengeInput,
@@ -58,10 +58,19 @@ async function request<T>(
   }
 
   if (!res.ok) {
-    const detail =
-      (data && typeof data === 'object' && 'detail' in data
-        ? String((data as { detail: unknown }).detail)
-        : null) || `Error ${res.status}`
+    const raw =
+      data && typeof data === 'object' && 'detail' in data
+        ? (data as { detail: unknown }).detail
+        : null
+    let detail: string
+    if (Array.isArray(raw)) {
+      // 422 de Pydantic: detail es una lista de errores -> mensaje genérico.
+      detail = translate(loadLang(), 'err.validation')
+    } else if (typeof raw === 'string') {
+      detail = translateApiError(raw)
+    } else {
+      detail = `Error ${res.status}`
+    }
     throw new ApiError(res.status, detail)
   }
 

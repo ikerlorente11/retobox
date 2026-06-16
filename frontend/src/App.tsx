@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import { useEffect, useState } from 'react'
 import { useStore } from './store'
-import { useT } from './lib/i18n'
+import { useT } from './lib/useT'
 import { TabBar, type Tab } from './components/TabBar'
 import { SorteoPage } from './pages/SorteoPage'
 import { RetosPage } from './pages/RetosPage'

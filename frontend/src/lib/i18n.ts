@@ -1,5 +1,6 @@
-// i18n ligero propio (sin dependencias). Diccionarios es/en + hook useT.
-import { useStore } from '../store'
+// i18n ligero propio (sin dependencias). Diccionarios es/en + helpers puros.
+// El hook reactivo `useT` vive en ./useT (este módulo NO importa el store, para
+// evitar un ciclo store <-> i18n).
 import type { Lang } from '../types'
 
 export const LANG_KEY = 'retobox.lang'
@@ -139,8 +140,6 @@ const es: Dict = {
   'settings.title': 'Ajustes',
   'settings.language': 'Idioma',
   'settings.languageHint': 'Elige el idioma de la app.',
-  'settings.spanish': 'Castellano',
-  'settings.english': 'Inglés',
   'settings.theme': 'Tema',
   'settings.themeHint': 'Elige la apariencia de la app.',
   'settings.dark': 'Oscuro',
@@ -184,6 +183,37 @@ const es: Dict = {
   'settings.importError': 'No se pudo importar.',
   'noun.retos': 'retos',
   'noun.grupos': 'grupos',
+
+  // accesibilidad / aria-labels
+  'aria.nav': 'Navegación principal',
+  'common.edit': 'Editar',
+  'common.rename': 'Renombrar',
+  'common.select': 'Seleccionar',
+  'aria.color': 'Color',
+
+  // rodillo de relleno (señuelos) cuando no hay suficientes retos
+  'reveal.decoys': 'Reto,Sorpresa,Prenda,Misión',
+
+  // placeholder de palabras de un grupo
+  'combos.wordsPh': 'Cocina\nSalón\nJardín',
+
+  // errores de importación de fichero
+  'file.invalidJson': 'El fichero no es un JSON válido.',
+  'file.noRetosList': 'El fichero no contiene una lista de retos.',
+  'file.noRetosValid': 'El fichero no contiene ningún reto válido.',
+  'file.noGroupsList': 'El fichero no contiene una lista de grupos.',
+  'file.noGroupsValid': 'El fichero no contiene ningún grupo válido.',
+
+  // errores devueltos por el backend (traducidos en el cliente)
+  'err.validation': 'Datos no válidos.',
+  'err.noChallenges': 'No quedan retos disponibles. Reinicia la sesión.',
+  'err.challengeNotFound': 'Reto no encontrado.',
+  'err.userNotFound': 'Usuario no encontrado.',
+  'err.collectionNotFound': 'Colección no encontrada.',
+  'err.cannotDeleteLastCollection': 'No puedes borrar la única colección.',
+  'err.groupNotFound': 'Grupo no encontrado.',
+  'err.involvedBelowRequired':
+    'Las personas involucradas no pueden ser menos que las que realizan el reto.',
 }
 
 const en: Dict = {
@@ -305,8 +335,6 @@ const en: Dict = {
   'settings.title': 'Settings',
   'settings.language': 'Language',
   'settings.languageHint': 'Choose the app language.',
-  'settings.spanish': 'Spanish',
-  'settings.english': 'English',
   'settings.theme': 'Theme',
   'settings.themeHint': 'Choose the app appearance.',
   'settings.dark': 'Dark',
@@ -348,9 +376,54 @@ const en: Dict = {
   'settings.importError': "Couldn't import.",
   'noun.retos': 'challenges',
   'noun.grupos': 'groups',
+
+  'aria.nav': 'Main navigation',
+  'common.edit': 'Edit',
+  'common.rename': 'Rename',
+  'common.select': 'Select',
+  'aria.color': 'Color',
+
+  'reveal.decoys': 'Challenge,Surprise,Dare,Mission',
+
+  'combos.wordsPh': 'Kitchen\nLiving room\nGarden',
+
+  'file.invalidJson': 'The file is not valid JSON.',
+  'file.noRetosList': 'The file does not contain a list of challenges.',
+  'file.noRetosValid': 'The file contains no valid challenges.',
+  'file.noGroupsList': 'The file does not contain a list of groups.',
+  'file.noGroupsValid': 'The file contains no valid groups.',
+
+  'err.validation': 'Invalid data.',
+  'err.noChallenges': 'No challenges left. Reset the session.',
+  'err.challengeNotFound': 'Challenge not found.',
+  'err.userNotFound': 'User not found.',
+  'err.collectionNotFound': 'Collection not found.',
+  'err.cannotDeleteLastCollection': "You can't delete the only collection.",
+  'err.groupNotFound': 'Group not found.',
+  'err.involvedBelowRequired':
+    'Involved people cannot be fewer than the performers.',
 }
 
 const dicts: Record<Lang, Dict> = { es, en }
+
+// Mapea los mensajes (en español) que devuelve el backend a claves i18n, para
+// poder mostrarlos en el idioma activo. Si no se reconoce, se deja tal cual.
+const apiErrorMap: Record<string, string> = {
+  'Selecciona al menos un usuario.': 'app.selectUser',
+  'No quedan retos disponibles. Reinicia la sesión.': 'err.noChallenges',
+  'Reto no encontrado.': 'err.challengeNotFound',
+  'Usuario no encontrado.': 'err.userNotFound',
+  'Colección no encontrada.': 'err.collectionNotFound',
+  'No puedes borrar la única colección.': 'err.cannotDeleteLastCollection',
+  'Grupo no encontrado.': 'err.groupNotFound',
+  'Las personas involucradas no pueden ser menos que las que realizan el reto.':
+    'err.involvedBelowRequired',
+}
+
+export function translateApiError(detail: string, lang?: Lang): string {
+  const key = apiErrorMap[detail]
+  return key ? translate(lang ?? loadLang(), key) : detail
+}
 
 export function translate(
   lang: Lang,
@@ -370,9 +443,3 @@ export type TFunc = (
   key: string,
   params?: Record<string, string | number>,
 ) => string
-
-// Hook reactivo: re-renderiza al cambiar el idioma.
-export function useT(): TFunc {
-  const lang = useStore((s) => s.lang)
-  return (key, params) => translate(lang, key, params)
-}

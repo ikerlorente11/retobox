@@ -13,7 +13,7 @@ import {
   buildGroupsFileContent,
   parseGroupsFile,
 } from '../lib/groupsFile'
-import { useT } from '../lib/i18n'
+import { useT } from '../lib/useT'
 
 export function AjustesPage() {
   const {

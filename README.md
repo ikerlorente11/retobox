@@ -8,14 +8,20 @@ manualmente. Pensada para usar en el móvil en fiestas.
 - 🎰 Revelado animado con dos estilos elegibles: **máquina tragaperras** y **dado 3D**.
 - 👥 Gestión de usuarios (avatares de color).
 - 🃏 Gestión de retos, indicando **cuántos jugadores** necesita cada uno.
+- 🗂️ **Colecciones de retos:** agrupa los retos por situaciones y elige la **colección activa**
+  (en Retos), que filtra la lista, el sorteo, las estadísticas y el reinicio.
 - 🎯 Tres modos de sorteo:
   - **Sin usuarios:** saca un reto al azar.
   - **Aleatorio total:** saca un reto elegible y asigna jugadores al azar.
   - **Usuarios seleccionados:** eliges quién juega y sale un reto compatible.
 - 🚫 Filtrado: solo salen retos realizables con los usuarios disponibles.
 - 🔁 Sin repeticiones hasta pulsar **Reiniciar sesión**.
+- 🔀 **Combos (mezclador):** crea grupos de palabras y, al jugar, salen varias tragaperras/dados
+  con una combinación al azar.
+- 📤 **Exportar / importar** retos (de la colección activa) y grupos de Combos a fichero, con dedup.
+- 🌍 **Bilingüe castellano / inglés** con selector en Ajustes (por defecto castellano).
 - 🌙☀️ **Tema oscuro neón y tema claro** elegibles en Ajustes (se recuerda entre sesiones).
-- 💎 Glassmorphism, responsive (móvil primero), microinteracciones y confeti.
+- 💎 Glassmorphism, responsive (móvil y tablet), microinteracciones y confeti.
 
 ## 🏗️ Stack
 - **Frontend:** React + Vite + TypeScript, Tailwind CSS, Framer Motion, Zustand.
@@ -70,7 +76,7 @@ retobox/
 ├── CONTRACT.md                 # contrato compartido (modelo + API + lógica de sorteo)
 ├── backend/                    # FastAPI + SQLite
 │   ├── app/                    # main.py, database.py, models.py, seed.py
-│   ├── tests/                  # suite pytest (28 tests del contrato)
+│   ├── tests/                  # suite pytest (77 tests del contrato)
 │   ├── requirements.txt
 │   ├── requirements-dev.txt    # + pytest, httpx
 │   └── Dockerfile
@@ -82,25 +88,32 @@ retobox/
 ```
 
 ## 🔌 API (resumen)
-`GET/POST/PUT/DELETE /api/challenges` · `GET/POST/DELETE /api/users` ·
+`GET/POST/PUT/DELETE /api/collections` ·
+`GET/POST/PUT/DELETE /api/challenges` (+ `POST /api/challenges/import`) ·
+`GET/POST/DELETE /api/users` ·
+`GET/POST/PUT/DELETE /api/word-groups` (+ `POST /api/word-groups/import`) ·
 `POST /api/draw` · `POST /api/reset` · `GET /api/stats` · `GET /api/health`
 
-Detalle completo en [`CONTRACT.md`](./CONTRACT.md).
+`/api/challenges`, `/api/draw`, `/api/reset` y `/api/stats` aceptan `collection_id`
+para filtrar por la colección activa. Detalle completo en [`CONTRACT.md`](./CONTRACT.md).
 
 ## 🧪 Tests
-**Backend** (28 tests, FastAPI `TestClient`) — cubren CRUD, validaciones (422),
-los 3 casos de elegibilidad de `/draw`, errores 400/404/409, no-repetición,
-reset y stats:
+**Backend** (77 tests, FastAPI `TestClient`) — cubren CRUD de retos/usuarios/
+colecciones/grupos, validaciones (422), los 3 casos de elegibilidad de `/draw`,
+errores 400/404/409, no-repetición, colecciones (filtrado, dedup por colección,
+migración), import/export y stats/reset por colección:
 ```bash
 cd backend
 pip install -r requirements-dev.txt
 pytest tests/ -v
 ```
-**Frontend** — typecheck + build:
+**Frontend** (21 tests con **Vitest** + jsdom) — i18n (`translate`, errores del
+backend), parsers de importar/exportar (retos y grupos), utilidades de color y
+arranque del store:
 ```bash
 cd frontend
-npx tsc --noEmit   # comprobación de tipos
-npm run build      # build de producción
+npm test           # vitest run
+npm run build      # typecheck (tsc -b) + build de producción
 ```
 
 ## 🩺 Arquitectura
@@ -109,4 +122,7 @@ npm run build      # build de producción
 - El backend persiste en SQLite (`DATABASE_PATH`, por defecto `/data/retobox.db`)
   sobre un volumen Docker; el acceso se serializa con un lock para SQLite.
 - El seed de ejemplo solo se carga si `SEED_DATA` está activo (dev sí, prod no).
-- El front guarda en `localStorage` el tema y el estilo de animación.
+- Cada reto pertenece a una **colección**; siempre existe al menos una ("General"), y
+  los retos de BD previas se migran a ella automáticamente al arrancar.
+- El front guarda en `localStorage` el tema, el estilo de animación, el **idioma** y la
+  **colección activa**.
