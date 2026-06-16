@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "RetoBox",
+    "slug": "retobox",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "retobox",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0b0718"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.encorelab.retobox"
+    },
+    "android": {
+      "package": "com.encorelab.retobox",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1c1033"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-asset",
+      "expo-sqlite",
+      "expo-audio"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}
