@@ -76,7 +76,7 @@ eas submit -p android                        # (opcional) subida a la consola
 ```
 
 El keystore lo gestiona EAS (guárdalo con cuidado: es crítico para futuras
-actualizaciones). `applicationId` = `com.encorelab.retobox` (ver `app.json`).
+actualizaciones). `applicationId` = `com.ikerlorente11.retobox` (ver `app.json`).
 
 ## ⚠️ Notas de scope (ver plan)
 
