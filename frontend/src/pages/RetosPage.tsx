@@ -8,10 +8,12 @@ import {
   PlusIcon,
   TrashIcon,
 } from '../components/icons'
+import { useT } from '../lib/i18n'
 import type { Challenge, Collection } from '../types'
 
 export function RetosPage() {
   const { challenges, addChallenge, editChallenge, removeChallenge } = useStore()
+  const t = useT()
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Challenge | null>(null)
   const [confirmDel, setConfirmDel] = useState<Challenge | null>(null)
@@ -32,14 +34,14 @@ export function RetosPage() {
     <div className="flex flex-col gap-4 pb-4">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-extrabold">Retos</h1>
+          <h1 className="text-2xl font-extrabold">{t('retos.title')}</h1>
           <p className="text-sm text-slate-400">
-            {challenges.length} retos · {used} usados
+            {t('retos.subtitle', { count: challenges.length, used })}
           </p>
         </div>
         <button onClick={openNew} className="btn-primary !px-4">
           <PlusIcon className="h-5 w-5" />
-          Añadir
+          {t('common.add')}
         </button>
       </header>
 
@@ -48,7 +50,7 @@ export function RetosPage() {
       {challenges.length === 0 && (
         <div className="glass mt-6 rounded-3xl p-8 text-center text-slate-400">
           <span className="mb-2 block text-4xl">📭</span>
-          Aún no hay retos. ¡Crea el primero!
+          {t('retos.empty')}
         </div>
       )}
 
@@ -83,15 +85,16 @@ export function RetosPage() {
       <Modal
         open={!!confirmDel}
         onClose={() => setConfirmDel(null)}
-        title="Borrar reto"
+        title={t('retos.delTitle')}
       >
         <p className="text-sm text-slate-300">
-          ¿Seguro que quieres borrar{' '}
-          <span className="font-bold">{confirmDel?.title}</span>?
+          {t('retos.delConfirmPre')}
+          <span className="font-bold">{confirmDel?.title}</span>
+          {t('retos.delConfirmPost')}
         </p>
         <div className="mt-5 flex gap-3">
           <button onClick={() => setConfirmDel(null)} className="btn-ghost flex-1">
-            Cancelar
+            {t('common.cancel')}
           </button>
           <button
             onClick={async () => {
@@ -100,7 +103,7 @@ export function RetosPage() {
             }}
             className="btn-danger flex-1"
           >
-            Borrar
+            {t('common.delete')}
           </button>
         </div>
       </Modal>
@@ -124,6 +127,7 @@ function ChallengeCard({
   onEdit: () => void
   onDelete: () => void
 }) {
+  const t = useT()
   const descRef = useRef<HTMLParagraphElement>(null)
   const [fullH, setFullH] = useState<number | null>(null)
 
@@ -154,12 +158,12 @@ function ChallengeCard({
             <h3 className="truncate font-bold">{c.title}</h3>
             {c.repeatable && (
               <span className="shrink-0 rounded-full bg-neon-purple/20 px-2 py-0.5 text-[10px] font-semibold text-neon-purple">
-                🔁 Repetible
+                🔁 {t('retos.repeatable')}
               </span>
             )}
             {c.is_used && !c.repeatable && (
               <span className="shrink-0 rounded-full bg-rose-500/20 px-2 py-0.5 text-[10px] font-semibold text-rose-200">
-                Usado
+                {t('retos.used')}
               </span>
             )}
           </div>
@@ -234,6 +238,7 @@ function CollectionSelector() {
     editCollection,
     removeCollection,
   } = useStore()
+  const t = useT()
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<
     null | { mode: 'new' | 'rename'; id?: number; name: string }
@@ -279,7 +284,7 @@ function CollectionSelector() {
           <CollectionIcon className="h-5 w-5 shrink-0 text-neon-purple" />
           <span className="min-w-0">
             <span className="block text-[10px] uppercase tracking-widest text-slate-500">
-              Colección
+              {t('col.label')}
             </span>
             <span className="block truncate font-semibold">
               {active?.name ?? '—'}
@@ -338,7 +343,7 @@ function CollectionSelector() {
               className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold text-neon-purple hover:bg-white/10"
             >
               <PlusIcon className="h-4 w-4" />
-              Nueva colección
+              {t('col.new')}
             </button>
           </motion.div>
         )}
@@ -348,7 +353,7 @@ function CollectionSelector() {
       <Modal
         open={!!form}
         onClose={() => setForm(null)}
-        title={form?.mode === 'rename' ? 'Renombrar colección' : 'Nueva colección'}
+        title={form?.mode === 'rename' ? t('col.rename') : t('col.new')}
       >
         <form onSubmit={submitForm} className="flex flex-col gap-4">
           <input
@@ -357,7 +362,7 @@ function CollectionSelector() {
             onChange={(e) =>
               setForm((f) => (f ? { ...f, name: e.target.value } : f))
             }
-            placeholder="Ej: Fiesta, Tranqui, Picante…"
+            placeholder={t('col.namePh')}
             autoFocus
           />
           <div className="flex gap-3">
@@ -366,10 +371,14 @@ function CollectionSelector() {
               onClick={() => setForm(null)}
               className="btn-ghost flex-1"
             >
-              Cancelar
+              {t('common.cancel')}
             </button>
             <button type="submit" disabled={saving} className="btn-primary flex-1">
-              {saving ? 'Guardando…' : form?.mode === 'rename' ? 'Guardar' : 'Crear'}
+              {saving
+                ? t('common.saving')
+                : form?.mode === 'rename'
+                  ? t('common.save')
+                  : t('common.create')}
             </button>
           </div>
         </form>
@@ -379,16 +388,16 @@ function CollectionSelector() {
       <Modal
         open={!!confirmDel}
         onClose={() => setConfirmDel(null)}
-        title="Borrar colección"
+        title={t('col.delTitle')}
       >
         <p className="text-sm text-slate-300">
-          ¿Seguro que quieres borrar{' '}
-          <span className="font-bold">{confirmDel?.name}</span>? Se borrarán
-          también <span className="font-bold">todos sus retos</span>.
+          {t('col.delConfirmPre')}
+          <span className="font-bold">{confirmDel?.name}</span>
+          {t('col.delConfirmPost')}
         </p>
         <div className="mt-5 flex gap-3">
           <button onClick={() => setConfirmDel(null)} className="btn-ghost flex-1">
-            Cancelar
+            {t('common.cancel')}
           </button>
           <button
             onClick={async () => {
@@ -397,7 +406,7 @@ function CollectionSelector() {
             }}
             className="btn-danger flex-1"
           >
-            Borrar
+            {t('common.delete')}
           </button>
         </div>
       </Modal>
@@ -438,6 +447,7 @@ function ChallengeForm({
     repeatable: boolean
   }) => Promise<void>
 }) {
+  const t = useT()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [players, setPlayers] = useState(1)
@@ -464,17 +474,17 @@ function ChallengeForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim()) {
-      setError('El título es obligatorio.')
+      setError(t('retos.form.errTitle'))
       return
     }
     if (players < 1) {
-      setError('El nº de personas que realizan el reto debe ser al menos 1.')
+      setError(t('retos.form.errPerformers'))
       return
     }
     const involvedTrimmed = involved.trim()
     const involvedValue = involvedTrimmed === '' ? null : parseInt(involvedTrimmed, 10)
     if (involvedValue != null && (Number.isNaN(involvedValue) || involvedValue < players)) {
-      setError('Las personas involucradas no pueden ser menos que las que lo realizan.')
+      setError(t('retos.form.errInvolved'))
       return
     }
     setSaving(true)
@@ -487,7 +497,7 @@ function ChallengeForm({
         repeatable,
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al guardar.')
+      setError(err instanceof Error ? err.message : t('retos.form.errSave'))
     } finally {
       setSaving(false)
     }
@@ -497,36 +507,36 @@ function ChallengeForm({
     <Modal
       open={open}
       onClose={onClose}
-      title={editing ? 'Editar reto' : 'Nuevo reto'}
+      title={editing ? t('retos.edit') : t('retos.new')}
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div>
           <label className="mb-1.5 block text-sm font-medium text-slate-300">
-            Título
+            {t('retos.form.title')}
           </label>
           <input
             className="input"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Ej: Imita a un famoso"
+            placeholder={t('retos.form.titlePh')}
             autoFocus
           />
         </div>
         <div>
           <label className="mb-1.5 block text-sm font-medium text-slate-300">
-            Descripción
+            {t('retos.form.description')}
           </label>
           <textarea
             className="input min-h-[180px] resize-y"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Detalles del reto (opcional)"
+            placeholder={t('retos.form.descriptionPh')}
           />
         </div>
         <div className="flex gap-3">
           <div className="flex-1">
             <label className="mb-1.5 block text-sm font-medium text-slate-300">
-              Realizan el reto
+              {t('retos.form.performers')}
             </label>
             <input
               type="number"
@@ -540,7 +550,7 @@ function ChallengeForm({
           </div>
           <div className="flex-1">
             <label className="mb-1.5 block text-sm font-medium text-slate-300">
-              Involucrados
+              {t('retos.form.involved')}
             </label>
             <input
               type="number"
@@ -548,23 +558,19 @@ function ChallengeForm({
               className="input"
               value={involved}
               onChange={(e) => setInvolved(e.target.value)}
-              placeholder="Opcional"
+              placeholder={t('retos.form.optional')}
             />
           </div>
         </div>
-        <p className="-mt-2 text-xs text-slate-500">
-          Solo se asignan personas a quienes lo realizan; el resto de involucrados
-          participan de forma anónima. Si lo dejas vacío solo cuentan los que lo
-          realizan.
-        </p>
+        <p className="-mt-2 text-xs text-slate-500">{t('retos.form.note')}</p>
 
         <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl bg-white/5 px-4 py-3">
           <span className="flex flex-col">
             <span className="text-sm font-medium text-slate-200">
-              🔁 Repetible
+              🔁 {t('retos.repeatable')}
             </span>
             <span className="text-xs text-slate-500">
-              Puede salir más de una vez en la misma sesión.
+              {t('retos.form.repeatableHint')}
             </span>
           </span>
           <input
@@ -577,10 +583,10 @@ function ChallengeForm({
         {error && <p className="text-sm text-rose-300">{error}</p>}
         <div className="mt-1 flex gap-3">
           <button type="button" onClick={onClose} className="btn-ghost flex-1">
-            Cancelar
+            {t('common.cancel')}
           </button>
           <button type="submit" disabled={saving} className="btn-primary flex-1">
-            {saving ? 'Guardando…' : editing ? 'Guardar' : 'Crear'}
+            {saving ? t('common.saving') : editing ? t('common.save') : t('common.create')}
           </button>
         </div>
       </form>

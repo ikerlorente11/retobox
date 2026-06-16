@@ -1,4 +1,5 @@
 // Cliente API — rutas relativas /api/... (mismo origen vía nginx en prod, proxy en dev)
+import { loadLang, translate } from './lib/i18n'
 import type {
   Challenge,
   ChallengeInput,
@@ -39,7 +40,7 @@ async function request<T>(
       ...options,
     })
   } catch {
-    throw new ApiError(0, 'No se pudo conectar con el servidor.')
+    throw new ApiError(0, translate(loadLang(), 'app.noConnection'))
   }
 
   if (res.status === 204) {

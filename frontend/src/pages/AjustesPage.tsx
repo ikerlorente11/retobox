@@ -13,6 +13,7 @@ import {
   buildGroupsFileContent,
   parseGroupsFile,
 } from '../lib/groupsFile'
+import { useT } from '../lib/i18n'
 
 export function AjustesPage() {
   const {
@@ -28,7 +29,10 @@ export function AjustesPage() {
     importChallenges,
     wordGroups,
     importWordGroups,
+    lang,
+    setLang,
   } = useStore()
+  const t = useT()
 
   const [confirmReset, setConfirmReset] = useState(false)
   const [resetting, setResetting] = useState(false)
@@ -47,56 +51,71 @@ export function AjustesPage() {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <h1 className="text-2xl font-extrabold">Ajustes</h1>
+      <h1 className="text-2xl font-extrabold">{t('settings.title')}</h1>
 
       {/* En tablet (md+) las tarjetas se reparten en 2 columnas tipo masonry
           (CSS multi-columna) para que se empaqueten sin huecos ni tarjetas
           colgando. break-inside-avoid impide que una tarjeta se parta. */}
       <div className="flex flex-col gap-5 md:block md:columns-2 md:gap-5 md:[&>section]:mb-5 md:[&>section]:break-inside-avoid">
-      {/* Tema */}
+      {/* Stats */}
       <section className="glass rounded-3xl p-5">
-        <h2 className="mb-1 font-bold">Tema</h2>
-        <p className="mb-4 text-sm text-slate-400">
-          Elige la apariencia de la app.
-        </p>
+        <h2 className="mb-3 font-bold">{t('settings.stats')}</h2>
         <div className="grid grid-cols-2 gap-3">
-          <StyleCard
-            active={theme === 'dark'}
-            onClick={() => setTheme('dark')}
-            emoji="🌙"
-            label="Oscuro"
-            desc="Neón sobre negro"
+          <Stat label={t('settings.statTotal')} value={stats?.total ?? 0} />
+          <Stat
+            label={t('settings.statAvailable')}
+            value={stats?.available ?? 0}
+            accent="cyan"
           />
-          <StyleCard
-            active={theme === 'light'}
-            onClick={() => setTheme('light')}
-            emoji="☀️"
-            label="Claro"
-            desc="Luminoso y limpio"
+          <Stat label={t('settings.statUsed')} value={stats?.used ?? 0} accent="pink" />
+          <Stat
+            label={t('settings.statUsers')}
+            value={stats?.users ?? 0}
+            accent="purple"
           />
         </div>
       </section>
 
       {/* Estilo de animación */}
       <section className="glass rounded-3xl p-5">
-        <h2 className="mb-1 font-bold">Animación de revelado</h2>
-        <p className="mb-4 text-sm text-slate-400">
-          Elige cómo se revela el reto al tirar.
-        </p>
+        <h2 className="mb-1 font-bold">{t('settings.reveal')}</h2>
+        <p className="mb-4 text-sm text-slate-400">{t('settings.revealHint')}</p>
         <div className="grid grid-cols-2 gap-3">
           <StyleCard
             active={revealStyle === 'slot'}
             onClick={() => setRevealStyle('slot')}
             emoji="🎰"
-            label="Tragaperras"
-            desc="Rodillos giratorios"
+            label={t('settings.slot')}
+            desc={t('settings.slotDesc')}
           />
           <StyleCard
             active={revealStyle === 'dice'}
             onClick={() => setRevealStyle('dice')}
             emoji="🎲"
-            label="Dado 3D"
-            desc="Cubo que rueda"
+            label={t('settings.dice')}
+            desc={t('settings.diceDesc')}
+          />
+        </div>
+      </section>
+
+      {/* Tema */}
+      <section className="glass rounded-3xl p-5">
+        <h2 className="mb-1 font-bold">{t('settings.theme')}</h2>
+        <p className="mb-4 text-sm text-slate-400">{t('settings.themeHint')}</p>
+        <div className="grid grid-cols-2 gap-3">
+          <StyleCard
+            active={theme === 'dark'}
+            onClick={() => setTheme('dark')}
+            emoji="🌙"
+            label={t('settings.dark')}
+            desc={t('settings.darkDesc')}
+          />
+          <StyleCard
+            active={theme === 'light'}
+            onClick={() => setTheme('light')}
+            emoji="☀️"
+            label={t('settings.light')}
+            desc={t('settings.lightDesc')}
           />
         </div>
       </section>
@@ -104,31 +123,48 @@ export function AjustesPage() {
       {/* Sonido */}
       <section className="glass flex items-center justify-between rounded-3xl p-5">
         <div>
-          <h2 className="font-bold">Sonido</h2>
-          <p className="text-sm text-slate-400">
-            Efectos al girar y revelar.
-          </p>
+          <h2 className="font-bold">{t('settings.sound')}</h2>
+          <p className="text-sm text-slate-400">{t('settings.soundHint')}</p>
         </div>
-        <Toggle on={soundEnabled} onChange={setSoundEnabled} label="Sonido" />
+        <Toggle
+          on={soundEnabled}
+          onChange={setSoundEnabled}
+          label={t('settings.sound')}
+        />
       </section>
 
-      {/* Stats */}
-      <section className="glass rounded-3xl p-5">
-        <h2 className="mb-3 font-bold">Estadísticas</h2>
-        <div className="grid grid-cols-2 gap-3">
-          <Stat label="Total retos" value={stats?.total ?? 0} />
-          <Stat label="Disponibles" value={stats?.available ?? 0} accent="cyan" />
-          <Stat label="Usados" value={stats?.used ?? 0} accent="pink" />
-          <Stat label="Usuarios" value={stats?.users ?? 0} accent="purple" />
+      {/* Idioma (control discreto tipo segmentado ES/EN) */}
+      <section className="glass flex items-center justify-between gap-3 rounded-3xl p-5">
+        <div>
+          <h2 className="font-bold">{t('settings.language')}</h2>
+          <p className="text-sm text-slate-400">{t('settings.languageHint')}</p>
+        </div>
+        <div className="flex shrink-0 rounded-full bg-white/5 p-1 text-sm font-semibold">
+          <button
+            onClick={() => setLang('es')}
+            className={`rounded-full px-3 py-1.5 transition ${
+              lang === 'es' ? 'bg-neon-gradient text-white' : 'text-slate-400'
+            }`}
+          >
+            ES
+          </button>
+          <button
+            onClick={() => setLang('en')}
+            className={`rounded-full px-3 py-1.5 transition ${
+              lang === 'en' ? 'bg-neon-gradient text-white' : 'text-slate-400'
+            }`}
+          >
+            EN
+          </button>
         </div>
       </section>
 
       {/* Exportar / importar Retos */}
       <ExportImportCard
-        title="Retos: exportar e importar"
-        hint="Exporta o importa los retos de la colección activa. Al importar, los retos que ya existan en esa colección no se duplican."
-        exportLabel="Exportar retos"
-        noun="retos"
+        title={t('settings.retosCard')}
+        hint={t('settings.retosCardHint')}
+        exportLabel={t('settings.exportRetos')}
+        noun={t('noun.retos')}
         canExport={challenges.length > 0}
         filename={EXPORT_FILENAME}
         buildContent={() => buildRetosFileContent(challenges)}
@@ -137,10 +173,10 @@ export function AjustesPage() {
 
       {/* Exportar / importar Combos (grupos de palabras) */}
       <ExportImportCard
-        title="Combos: exportar e importar"
-        hint="Descarga tus grupos de palabras en un fichero. Al importar, los grupos que ya existan (por nombre) no se duplican."
-        exportLabel="Exportar grupos"
-        noun="grupos"
+        title={t('settings.combosCard')}
+        hint={t('settings.combosCardHint')}
+        exportLabel={t('settings.exportGroups')}
+        noun={t('noun.grupos')}
         canExport={wordGroups.length > 0}
         filename={GROUPS_EXPORT_FILENAME}
         buildContent={() => buildGroupsFileContent(wordGroups)}
@@ -149,15 +185,13 @@ export function AjustesPage() {
 
       {/* Reset */}
       <section className="glass rounded-3xl p-5">
-        <h2 className="mb-1 font-bold">Sesión</h2>
-        <p className="mb-4 text-sm text-slate-400">
-          Reinicia para que todos los retos vuelvan a estar disponibles.
-        </p>
+        <h2 className="mb-1 font-bold">{t('settings.session')}</h2>
+        <p className="mb-4 text-sm text-slate-400">{t('settings.sessionHint')}</p>
         <button
           onClick={() => setConfirmReset(true)}
           className="btn-ghost w-full"
         >
-          ♻️ Reiniciar sesión
+          ♻️ {t('sorteo.resetSession')}
         </button>
         {resetCount !== null && (
           <motion.p
@@ -165,7 +199,7 @@ export function AjustesPage() {
             animate={{ opacity: 1 }}
             className="mt-3 text-center text-sm text-emerald-300"
           >
-            {resetCount} retos reseteados.
+            {t('settings.resetDone', { n: resetCount })}
           </motion.p>
         )}
       </section>
@@ -177,24 +211,22 @@ export function AjustesPage() {
       <Modal
         open={confirmReset}
         onClose={() => setConfirmReset(false)}
-        title="Reiniciar sesión"
+        title={t('settings.resetConfirmTitle')}
       >
-        <p className="text-sm text-slate-300">
-          Todos los retos volverán a estar disponibles. ¿Continuar?
-        </p>
+        <p className="text-sm text-slate-300">{t('settings.resetConfirmBody')}</p>
         <div className="mt-5 flex gap-3">
           <button
             onClick={() => setConfirmReset(false)}
             className="btn-ghost flex-1"
           >
-            Cancelar
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleReset}
             disabled={resetting}
             className="btn-primary flex-1"
           >
-            {resetting ? 'Reiniciando…' : 'Reiniciar'}
+            {resetting ? t('sorteo.resetting') : t('sorteo.resetSession')}
           </button>
         </div>
       </Modal>
@@ -222,6 +254,7 @@ function ExportImportCard({
   buildContent: () => string
   importFile: (text: string) => Promise<{ imported: number; skipped: number }>
 }) {
+  const t = useT()
   const inputRef = useRef<HTMLInputElement>(null)
   const [importing, setImporting] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -239,7 +272,7 @@ function ExportImportCard({
     a.click()
     document.body.removeChild(a)
     setTimeout(() => URL.revokeObjectURL(url), 2000)
-    setMsg({ ok: true, text: `Exportado a ${filename}.` })
+    setMsg({ ok: true, text: t('settings.exportedTo', { file: filename }) })
   }
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -254,17 +287,20 @@ function ExportImportCard({
         ok: true,
         text:
           res.imported === 0
-            ? `Nada nuevo: ${res.skipped} ya ${
-                res.skipped === 1 ? 'estaba' : 'estaban'
-              }.`
-            : `${res.imported} ${noun} añadidos${
-                res.skipped > 0 ? ` · ${res.skipped} ya existían` : ''
-              }.`,
+            ? t('settings.importNothing', { n: res.skipped })
+            : t('settings.importDone', {
+                imported: res.imported,
+                noun,
+                extra:
+                  res.skipped > 0
+                    ? t('settings.importDoneExtra', { n: res.skipped })
+                    : '',
+              }),
       })
     } catch (err) {
       setMsg({
         ok: false,
-        text: err instanceof Error ? err.message : 'No se pudo importar.',
+        text: err instanceof Error ? err.message : t('settings.importError'),
       })
     } finally {
       setImporting(false)
@@ -290,7 +326,7 @@ function ExportImportCard({
           className="btn-ghost w-full"
         >
           <ImportIcon className="h-5 w-5" />
-          {importing ? 'Importando…' : 'Importar fichero'}
+          {importing ? t('settings.importing') : t('settings.import')}
         </button>
         <input
           ref={inputRef}

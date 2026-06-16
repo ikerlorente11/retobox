@@ -6,6 +6,7 @@ import { Confetti } from '../components/Confetti'
 import { WordReel } from '../components/reveal/WordReel'
 import { EditIcon, PlusIcon, TrashIcon } from '../components/icons'
 import { playReveal } from '../lib/sound'
+import { useT } from '../lib/i18n'
 import type { RevealStyle, WordGroup } from '../types'
 
 interface ComboItem {
@@ -26,6 +27,7 @@ export function CombosPage() {
     revealStyle,
     soundEnabled,
   } = useStore()
+  const t = useT()
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<WordGroup | null>(null)
@@ -64,22 +66,19 @@ export function CombosPage() {
     <div className="flex flex-1 flex-col gap-4 pb-4">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-extrabold">Combos</h1>
-          <p className="text-sm text-slate-400">
-            Crea grupos de palabras y combínalos al azar
-          </p>
+          <h1 className="text-2xl font-extrabold">{t('combos.title')}</h1>
+          <p className="text-sm text-slate-400">{t('combos.subtitle')}</p>
         </div>
         <button onClick={openNew} className="btn-primary !px-4">
           <PlusIcon className="h-5 w-5" />
-          Grupo
+          {t('combos.group')}
         </button>
       </header>
 
       {wordGroups.length === 0 ? (
         <div className="glass mt-6 rounded-3xl p-8 text-center text-slate-400">
           <span className="mb-2 block text-4xl">🎰</span>
-          Aún no hay grupos. Crea uno (p. ej. <b>Zona</b>, <b>Acción</b>,{' '}
-          <b>Tiempo</b>) con sus palabras.
+          {t('combos.empty')}
         </div>
       ) : (
         <>
@@ -95,11 +94,11 @@ export function CombosPage() {
                 aria-expanded={groupsOpen}
               >
                 <span className="text-sm font-semibold text-slate-300">
-                  Grupos · {wordGroups.length}
+                  {t('combos.groupsCount', { n: wordGroups.length })}
                   {activeGroups.length > 0 && (
                     <span className="text-slate-500">
                       {' '}
-                      ({activeGroups.length} activos)
+                      {t('combos.activeCount', { n: activeGroups.length })}
                     </span>
                   )}
                 </span>
@@ -144,14 +143,17 @@ export function CombosPage() {
                 whileTap={{ scale: canSpin ? 0.96 : 1 }}
                 className="btn-primary pointer-events-auto !rounded-full !px-12 !py-4 text-lg disabled:opacity-50"
               >
-                ¡Jugar!
+                {t('combos.play')}
               </motion.button>
               <p className="max-w-xs text-center text-xs text-slate-500">
                 {canSpin
-                  ? `Saldrán ${activeGroups.length} ${
-                      activeGroups.length === 1 ? 'rodillo' : 'rodillos'
-                    } con una combinación al azar.`
-                  : 'Selecciona al menos un grupo con palabras para jugar.'}
+                  ? t('combos.willRoll', {
+                      n: activeGroups.length,
+                      reels: t(
+                        activeGroups.length === 1 ? 'combos.reel' : 'combos.reels',
+                      ),
+                    })
+                  : t('combos.needGroup')}
               </p>
             </div>
           </div>
@@ -174,15 +176,16 @@ export function CombosPage() {
       <Modal
         open={!!confirmDel}
         onClose={() => setConfirmDel(null)}
-        title="Borrar grupo"
+        title={t('combos.delTitle')}
       >
         <p className="text-sm text-slate-300">
-          ¿Seguro que quieres borrar{' '}
-          <span className="font-bold">{confirmDel?.name}</span>?
+          {t('combos.delConfirmPre')}
+          <span className="font-bold">{confirmDel?.name}</span>
+          {t('combos.delConfirmPost')}
         </p>
         <div className="mt-5 flex gap-3">
           <button onClick={() => setConfirmDel(null)} className="btn-ghost flex-1">
-            Cancelar
+            {t('common.cancel')}
           </button>
           <button
             onClick={async () => {
@@ -191,7 +194,7 @@ export function CombosPage() {
             }}
             className="btn-danger flex-1"
           >
-            Borrar
+            {t('common.delete')}
           </button>
         </div>
       </Modal>
@@ -231,6 +234,7 @@ function GroupCard({
   onDelete: () => void
 }) {
   // Colapsada por defecto: solo casilla + nombre. Al desplegar aparece el resto.
+  const t = useT()
   const [expanded, setExpanded] = useState(false)
   const empty = g.words.length === 0
   const active = selected && !empty
@@ -293,13 +297,11 @@ function GroupCard({
             className="overflow-hidden"
           >
             {empty ? (
-              <p className="mt-3 text-xs text-slate-500">
-                Sin palabras todavía. Edítalo para añadirlas.
-              </p>
+              <p className="mt-3 text-xs text-slate-500">{t('combos.noWords')}</p>
             ) : (
               <div className="mt-3">
                 <p className="mb-2 text-[11px] uppercase tracking-widest text-slate-500">
-                  {g.words.length} palabras
+                  {t('combos.wordsCount', { n: g.words.length })}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {g.words.map((w, i) => (
@@ -378,6 +380,7 @@ function ComboReveal({
   onAgain: () => void
   onClose: () => void
 }) {
+  const t = useT()
   const [settled, setSettled] = useState(0)
   const done = items.length > 0 && settled >= items.length
 
@@ -407,7 +410,7 @@ function ComboReveal({
         transition={{ type: 'spring', stiffness: 280, damping: 26 }}
       >
         <p className="mb-4 shrink-0 text-center text-xs uppercase tracking-widest text-slate-400">
-          Combinación
+          {t('combos.combination')}
         </p>
 
         {/* Área de rodillos: envuelve en varias columnas y hace scroll si no
@@ -432,10 +435,10 @@ function ComboReveal({
           animate={{ opacity: done ? 1 : 0.4 }}
         >
           <button onClick={onClose} className="btn-ghost flex-1">
-            Cerrar
+            {t('common.close')}
           </button>
           <button onClick={onAgain} className="btn-primary flex-1">
-            Otra vez
+            {t('common.again')}
           </button>
         </motion.div>
       </motion.div>
@@ -458,6 +461,7 @@ function GroupForm({
   onClose: () => void
   onSubmit: (data: { name: string; words: string[] }) => Promise<void>
 }) {
+  const t = useT()
   const [name, setName] = useState('')
   const [wordsText, setWordsText] = useState('')
   const [error, setError] = useState('')
@@ -479,14 +483,14 @@ function GroupForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim()) {
-      setError('El nombre del grupo es obligatorio.')
+      setError(t('users.errName'))
       return
     }
     setSaving(true)
     try {
       await onSubmit({ name: name.trim(), words: parsedWords })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al guardar.')
+      setError(err instanceof Error ? err.message : t('retos.form.errSave'))
     } finally {
       setSaving(false)
     }
@@ -496,26 +500,26 @@ function GroupForm({
     <Modal
       open={open}
       onClose={onClose}
-      title={editing ? 'Editar grupo' : 'Nuevo grupo'}
+      title={editing ? t('combos.editGroup') : t('combos.newGroup')}
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div>
           <label className="mb-1.5 block text-sm font-medium text-slate-300">
-            Nombre del grupo
+            {t('combos.groupName')}
           </label>
           <input
             className="input"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Ej: Zona, Acción, Tiempo…"
+            placeholder={t('combos.groupNamePh')}
             autoFocus
           />
         </div>
         <div>
           <label className="mb-1.5 block text-sm font-medium text-slate-300">
-            Palabras{' '}
+            {t('combos.words')}{' '}
             <span className="font-normal text-slate-500">
-              (una por línea · {parsedWords.length})
+              {t('combos.wordsHelper', { n: parsedWords.length })}
             </span>
           </label>
           <textarea
@@ -524,17 +528,15 @@ function GroupForm({
             onChange={(e) => setWordsText(e.target.value)}
             placeholder={'Cocina\nSalón\nJardín'}
           />
-          <p className="mt-1.5 text-xs text-slate-500">
-            Se ignoran líneas vacías y palabras repetidas.
-          </p>
+          <p className="mt-1.5 text-xs text-slate-500">{t('combos.wordsNote')}</p>
         </div>
         {error && <p className="text-sm text-rose-300">{error}</p>}
         <div className="mt-1 flex gap-3">
           <button type="button" onClick={onClose} className="btn-ghost flex-1">
-            Cancelar
+            {t('common.cancel')}
           </button>
           <button type="submit" disabled={saving} className="btn-primary flex-1">
-            {saving ? 'Guardando…' : editing ? 'Guardar' : 'Crear'}
+            {saving ? t('common.saving') : editing ? t('common.save') : t('common.create')}
           </button>
         </div>
       </form>

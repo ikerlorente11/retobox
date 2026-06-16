@@ -1,19 +1,20 @@
 import { motion } from 'framer-motion'
 import type { ComponentType, SVGProps } from 'react'
 import { DiceIcon, ListIcon, SettingsIcon, ShuffleIcon, UsersIcon } from './icons'
+import { useT } from '../lib/i18n'
 
 export type Tab = 'sorteo' | 'retos' | 'usuarios' | 'combos' | 'ajustes'
 
 const TABS: {
   id: Tab
-  label: string
+  labelKey: string
   Icon: ComponentType<SVGProps<SVGSVGElement>>
 }[] = [
-  { id: 'sorteo', label: 'Sorteo', Icon: DiceIcon },
-  { id: 'retos', label: 'Retos', Icon: ListIcon },
-  { id: 'usuarios', label: 'Usuarios', Icon: UsersIcon },
-  { id: 'combos', label: 'Combos', Icon: ShuffleIcon },
-  { id: 'ajustes', label: 'Ajustes', Icon: SettingsIcon },
+  { id: 'sorteo', labelKey: 'tab.sorteo', Icon: DiceIcon },
+  { id: 'retos', labelKey: 'tab.retos', Icon: ListIcon },
+  { id: 'usuarios', labelKey: 'tab.usuarios', Icon: UsersIcon },
+  { id: 'combos', labelKey: 'tab.combos', Icon: ShuffleIcon },
+  { id: 'ajustes', labelKey: 'tab.ajustes', Icon: SettingsIcon },
 ]
 
 interface Props {
@@ -22,13 +23,15 @@ interface Props {
 }
 
 export function TabBar({ active, onChange }: Props) {
+  const t = useT()
   return (
     <nav
       aria-label="Navegación principal"
       className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.6rem,env(safe-area-inset-bottom))] pt-2"
     >
       <div className="glass-strong mx-auto flex max-w-md items-center justify-around rounded-3xl p-1.5 shadow-glow">
-        {TABS.map(({ id, label, Icon }) => {
+        {TABS.map(({ id, labelKey, Icon }) => {
+          const label = t(labelKey)
           const isActive = active === id
           return (
             <button

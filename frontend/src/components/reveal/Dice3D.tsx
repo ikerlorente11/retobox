@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import type { Challenge, User } from '../../types'
 import { Avatar } from '../Avatar'
 import { playReveal } from '../../lib/sound'
+import { useT } from '../../lib/i18n'
 
 interface Props {
   challenge: Challenge
@@ -39,6 +40,7 @@ export function Dice3D({
   soundEnabled,
   onSettled,
 }: Props) {
+  const t = useT()
   const [titles] = useState(() => faceTitles(challenge.title, decoyTitles))
   const [landed, setLanded] = useState(false)
 
@@ -54,7 +56,9 @@ export function Dice3D({
 
   return (
     <div className="flex flex-col items-center gap-2">
-      <p className="text-xs uppercase tracking-widest text-slate-400">El reto</p>
+      <p className="text-xs uppercase tracking-widest text-slate-400">
+        {t('reveal.elReto')}
+      </p>
 
       <div
         className="grid place-items-center"
@@ -119,7 +123,7 @@ export function Dice3D({
       {assignedUsers.length > 0 && (
         <div className="w-full">
           <p className="mb-2 text-center text-xs uppercase tracking-widest text-slate-400">
-            Le toca a
+            {t('reveal.leTocaA')}
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
             {assignedUsers.map((u, i) => (

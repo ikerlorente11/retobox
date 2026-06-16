@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { api, ApiError } from './api'
+import { LANG_KEY, loadLang, translate } from './lib/i18n'
 import type {
   Challenge,
   ChallengeInput,
@@ -9,6 +10,7 @@ import type {
   DrawMode,
   DrawResult,
   ImportResult,
+  Lang,
   RevealStyle,
   Stats,
   Theme,
@@ -72,6 +74,7 @@ interface AppState {
   revealStyle: RevealStyle
   soundEnabled: boolean
   theme: Theme
+  lang: Lang
 
   // estado general
   loading: boolean
@@ -111,6 +114,7 @@ interface AppState {
   setRevealStyle: (style: RevealStyle) => void
   setSoundEnabled: (on: boolean) => void
   setTheme: (theme: Theme) => void
+  setLang: (lang: Lang) => void
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -134,6 +138,7 @@ export const useStore = create<AppState>((set, get) => ({
   revealStyle: loadRevealStyle(),
   soundEnabled: loadSound(),
   theme: loadTheme(),
+  lang: loadLang(),
 
   loading: true,
   loadError: null,
@@ -173,7 +178,8 @@ export const useStore = create<AppState>((set, get) => ({
         loading: false,
       })
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Error al cargar datos.'
+      const msg =
+        e instanceof Error ? e.message : translate(get().lang, 'app.loadError')
       set({ loading: false, loadError: msg })
     }
   },
@@ -208,7 +214,10 @@ export const useStore = create<AppState>((set, get) => ({
     if (mode === 'selected' && users.length > 0 && selectedUserIds.length === 0) {
       set({
         drawing: false,
-        drawError: { status: 400, detail: 'Selecciona al menos un usuario.' },
+        drawError: {
+          status: 400,
+          detail: translate(get().lang, 'app.selectUser'),
+        },
       })
       return
     }
@@ -249,7 +258,10 @@ export const useStore = create<AppState>((set, get) => ({
       } else {
         set({
           drawing: false,
-          drawError: { status: 0, detail: 'Error inesperado al tirar.' },
+          drawError: {
+            status: 0,
+            detail: translate(get().lang, 'app.unexpectedDraw'),
+          },
         })
       }
     }
@@ -435,5 +447,10 @@ export const useStore = create<AppState>((set, get) => ({
     localStorage.setItem(THEME_KEY, theme)
     applyTheme(theme)
     set({ theme })
+  },
+
+  setLang: (lang) => {
+    localStorage.setItem(LANG_KEY, lang)
+    set({ lang })
   },
 }))

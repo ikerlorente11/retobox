@@ -5,10 +5,12 @@ import { Avatar } from '../components/Avatar'
 import { Modal } from '../components/Modal'
 import { PlusIcon, TrashIcon } from '../components/icons'
 import { USER_COLORS } from '../lib/colors'
+import { useT } from '../lib/i18n'
 import type { User } from '../types'
 
 export function UsuariosPage() {
   const { users, addUser, removeUser } = useStore()
+  const t = useT()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [color, setColor] = useState(USER_COLORS[0])
@@ -26,7 +28,7 @@ export function UsuariosPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim()) {
-      setError('El nombre es obligatorio.')
+      setError(t('users.errName'))
       return
     }
     setSaving(true)
@@ -34,7 +36,7 @@ export function UsuariosPage() {
       await addUser({ name: name.trim(), color })
       setOpen(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al guardar.')
+      setError(err instanceof Error ? err.message : t('retos.form.errSave'))
     } finally {
       setSaving(false)
     }
@@ -44,19 +46,21 @@ export function UsuariosPage() {
     <div className="flex flex-col gap-4 pb-4">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-extrabold">Usuarios</h1>
-          <p className="text-sm text-slate-400">{users.length} jugadores</p>
+          <h1 className="text-2xl font-extrabold">{t('users.title')}</h1>
+          <p className="text-sm text-slate-400">
+            {t('users.subtitle', { count: users.length })}
+          </p>
         </div>
         <button onClick={openNew} className="btn-primary !px-4">
           <PlusIcon className="h-5 w-5" />
-          Añadir
+          {t('common.add')}
         </button>
       </header>
 
       {users.length === 0 && (
         <div className="glass mt-6 rounded-3xl p-8 text-center text-slate-400">
           <span className="mb-2 block text-4xl">🧑‍🤝‍🧑</span>
-          No hay usuarios. Sin ellos, el sorteo será aleatorio simple.
+          {t('users.empty')}
         </div>
       )}
 
@@ -87,23 +91,23 @@ export function UsuariosPage() {
         </AnimatePresence>
       </ul>
 
-      <Modal open={open} onClose={() => setOpen(false)} title="Nuevo usuario">
+      <Modal open={open} onClose={() => setOpen(false)} title={t('users.new')}>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-300">
-              Nombre
+              {t('users.name')}
             </label>
             <input
               className="input"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ej: Lucía"
+              placeholder={t('users.namePh')}
               autoFocus
             />
           </div>
           <div>
             <label className="mb-2 block text-sm font-medium text-slate-300">
-              Color
+              {t('users.color')}
             </label>
             <div className="flex flex-wrap gap-2">
               {USER_COLORS.map((c) => (
@@ -129,10 +133,10 @@ export function UsuariosPage() {
               onClick={() => setOpen(false)}
               className="btn-ghost flex-1"
             >
-              Cancelar
+              {t('common.cancel')}
             </button>
             <button type="submit" disabled={saving} className="btn-primary flex-1">
-              {saving ? 'Guardando…' : 'Crear'}
+              {saving ? t('common.saving') : t('common.create')}
             </button>
           </div>
         </form>
@@ -141,15 +145,16 @@ export function UsuariosPage() {
       <Modal
         open={!!confirmDel}
         onClose={() => setConfirmDel(null)}
-        title="Borrar usuario"
+        title={t('users.delTitle')}
       >
         <p className="text-sm text-slate-300">
-          ¿Seguro que quieres borrar a{' '}
-          <span className="font-bold">{confirmDel?.name}</span>?
+          {t('users.delConfirmPre')}
+          <span className="font-bold">{confirmDel?.name}</span>
+          {t('users.delConfirmPost')}
         </p>
         <div className="mt-5 flex gap-3">
           <button onClick={() => setConfirmDel(null)} className="btn-ghost flex-1">
-            Cancelar
+            {t('common.cancel')}
           </button>
           <button
             onClick={async () => {
@@ -158,7 +163,7 @@ export function UsuariosPage() {
             }}
             className="btn-danger flex-1"
           >
-            Borrar
+            {t('common.delete')}
           </button>
         </div>
       </Modal>

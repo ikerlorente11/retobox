@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import type { Challenge, User } from '../../types'
 import { Avatar } from '../Avatar'
 import { playReveal, playTick } from '../../lib/sound'
+import { useT } from '../../lib/i18n'
 
 interface Props {
   challenge: Challenge
@@ -34,6 +35,7 @@ export function SlotMachine({
   soundEnabled,
   onSettled,
 }: Props) {
+  const t = useT()
   const controls = useAnimationControls()
   const strip = useMemo(
     () => buildStrip(challenge.title, decoyTitles),
@@ -78,7 +80,7 @@ export function SlotMachine({
       {/* Rodillo de reto (ancho fijo para que el popup se ajuste a él) */}
       <div className="w-72">
         <p className="mb-2 text-center text-xs uppercase tracking-widest text-slate-400">
-          El reto
+          {t('reveal.elReto')}
         </p>
         <div
           className="glass-strong relative mx-auto w-full overflow-hidden rounded-3xl shadow-glow"
@@ -109,7 +111,7 @@ export function SlotMachine({
       {assignedUsers.length > 0 && (
         <div className="w-full">
           <p className="mb-2 text-center text-xs uppercase tracking-widest text-slate-400">
-            Le toca a
+            {t('reveal.leTocaA')}
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
             {assignedUsers.map((u, i) => (

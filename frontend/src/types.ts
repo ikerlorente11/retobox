@@ -96,3 +96,5 @@ export interface ImportResult {
 export type RevealStyle = 'slot' | 'dice'
 
 export type Theme = 'dark' | 'light'
+
+export type Lang = 'es' | 'en'

@@ -4,6 +4,7 @@ import { useStore } from '../store'
 import { Avatar } from '../components/Avatar'
 import { Confetti } from '../components/Confetti'
 import { CollectionIcon } from '../components/icons'
+import { useT } from '../lib/i18n'
 import { SlotMachine } from '../components/reveal/SlotMachine'
 import { Dice3D } from '../components/reveal/Dice3D'
 import type { Tab } from '../components/TabBar'
@@ -36,6 +37,7 @@ export function SorteoPage({ goTo }: Props) {
 
   const activeCollection =
     collections.find((c) => c.id === activeCollectionId) ?? null
+  const t = useT()
 
   const [showConfetti, setShowConfetti] = useState(false)
   const [resetting, setResetting] = useState(false)
@@ -75,9 +77,7 @@ export function SorteoPage({ goTo }: Props) {
           <span className="gradient-text">Reto</span>
           <span className="text-slate-100">Box</span>
         </motion.h1>
-        <p className="mt-1 text-sm text-slate-400">
-          Retos al azar para tus fiestas
-        </p>
+        <p className="mt-1 text-sm text-slate-400">{t('sorteo.subtitle')}</p>
       </div>
 
       {/* Colección activa (de la que se sortea) */}
@@ -93,7 +93,9 @@ export function SorteoPage({ goTo }: Props) {
       {/* Contador de retos restantes */}
       <div className="glass flex items-center gap-3 rounded-full px-5 py-2">
         <span className="text-2xl font-extrabold gradient-text">{available}</span>
-        <span className="text-sm text-slate-400">/ {total} retos restantes</span>
+        <span className="text-sm text-slate-400">
+          {t('sorteo.remaining', { total })}
+        </span>
       </div>
 
       {/* Selector de modo (oculto si no hay usuarios: modo aleatorio simple) */}
@@ -102,12 +104,12 @@ export function SorteoPage({ goTo }: Props) {
           <ModeButton
             active={mode === 'random'}
             onClick={() => setMode('random')}
-            label="Aleatorio total"
+            label={t('sorteo.modeRandom')}
           />
           <ModeButton
             active={mode === 'selected'}
             onClick={() => setMode('selected')}
-            label="Usuarios seleccionados"
+            label={t('sorteo.modeSelected')}
           />
         </div>
       )}
@@ -127,16 +129,13 @@ export function SorteoPage({ goTo }: Props) {
                 <button
                   key={u.id}
                   onClick={() => toggleUserSelection(u.id)}
-                  className={`chip ${
+                  className={`flex items-center gap-2 rounded-full py-1 pl-1 pr-3 text-sm font-medium transition ${
                     sel
-                      ? 'border-transparent bg-neon-gradient text-white shadow-glow'
-                      : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                      ? 'bg-neon-gradient text-white shadow-glow'
+                      : 'bg-white/5 text-slate-300 opacity-60 hover:opacity-100'
                   }`}
                 >
-                  <span
-                    className="h-2.5 w-2.5 rounded-full"
-                    style={{ background: u.color }}
-                  />
+                  <Avatar user={u} size="sm" ring={sel} />
                   {u.name}
                 </button>
               )
@@ -173,7 +172,7 @@ export function SorteoPage({ goTo }: Props) {
           ) : (
             <>
               <span className="text-4xl">🎲</span>
-              <span>¡Tirar!</span>
+              <span>{t('sorteo.tirar')}</span>
             </>
           )}
         </span>
@@ -181,10 +180,10 @@ export function SorteoPage({ goTo }: Props) {
 
       <p className="text-center text-xs text-slate-500">
         {noUsers
-          ? 'Sin usuarios: modo aleatorio simple. Añade gente en la pestaña Usuarios.'
+          ? t('sorteo.hintNoUsers')
           : mode === 'selected'
-            ? 'Solo entrarán los usuarios seleccionados.'
-            : 'Participan todos los usuarios registrados.'}
+            ? t('sorteo.hintSelected')
+            : t('sorteo.hintRandom')}
       </p>
 
       {/* Error 400 amistoso */}
@@ -211,17 +210,14 @@ export function SorteoPage({ goTo }: Props) {
             className="glass-strong flex w-full max-w-md flex-col items-center gap-4 rounded-3xl p-6 text-center md:max-w-lg"
           >
             <span className="text-5xl">🪫</span>
-            <h3 className="text-lg font-bold">No quedan retos</h3>
-            <p className="text-sm text-slate-400">
-              Habéis agotado todas las cartas de esta sesión. Reinicia para volver
-              a empezar.
-            </p>
+            <h3 className="text-lg font-bold">{t('sorteo.outTitle')}</h3>
+            <p className="text-sm text-slate-400">{t('sorteo.outBody')}</p>
             <button
               onClick={handleReset}
               disabled={resetting}
               className="btn-primary w-full"
             >
-              {resetting ? 'Reiniciando…' : 'Reiniciar sesión'}
+              {resetting ? t('sorteo.resetting') : t('sorteo.resetSession')}
             </button>
           </motion.div>
         )}
@@ -306,14 +302,18 @@ export function SorteoPage({ goTo }: Props) {
                       ))}
                       {result.anonymous_count > 0 && (
                         <span className="flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-1 text-xs text-slate-400">
-                          🎭 +{result.anonymous_count} anónimo
-                          {result.anonymous_count > 1 ? 's' : ''}
+                          {t(
+                            result.anonymous_count > 1
+                              ? 'sorteo.anonPlural'
+                              : 'sorteo.anon',
+                            { n: result.anonymous_count },
+                          )}
                         </span>
                       )}
                     </div>
                   )}
                   <p className="mt-3 text-xs text-slate-500">
-                    Quedan {result.remaining} retos en esta sesión
+                    {t('sorteo.remainingSession', { n: result.remaining })}
                   </p>
 
                   <div className="mt-5 flex gap-3">
@@ -324,7 +324,7 @@ export function SorteoPage({ goTo }: Props) {
                       }}
                       className="btn-ghost flex-1"
                     >
-                      Cerrar
+                      {t('common.close')}
                     </button>
                     <button
                       onClick={() => {
@@ -335,7 +335,7 @@ export function SorteoPage({ goTo }: Props) {
                       }}
                       className="btn-primary flex-1"
                     >
-                      Otra vez 🎲
+                      {t('common.again')} 🎲
                     </button>
                   </div>
                   {result.assigned_users.length === 0 && !noUsers && (
@@ -346,7 +346,7 @@ export function SorteoPage({ goTo }: Props) {
                       }}
                       className="mt-3 text-xs text-slate-400 underline"
                     >
-                      Gestionar usuarios
+                      {t('sorteo.manageUsers')}
                     </button>
                   )}
                 </motion.div>
