@@ -29,6 +29,7 @@ def _clean_db():
     with _lock:
         conn.execute("DELETE FROM challenges")
         conn.execute("DELETE FROM users")
+        conn.execute("DELETE FROM word_groups")
         try:
             conn.execute("DELETE FROM sqlite_sequence")
         except Exception:

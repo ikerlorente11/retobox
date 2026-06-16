@@ -12,6 +12,8 @@ import type {
   Theme,
   User,
   UserInput,
+  WordGroup,
+  WordGroupInput,
 } from './types'
 
 const REVEAL_KEY = 'retobox.revealStyle'
@@ -46,6 +48,10 @@ interface AppState {
   challenges: Challenge[]
   users: User[]
   stats: Stats | null
+
+  // mezclador (grupos de palabras)
+  wordGroups: WordGroup[]
+  selectedGroupIds: number[]
 
   // sorteo
   mode: DrawMode
@@ -84,6 +90,12 @@ interface AppState {
   addUser: (input: UserInput) => Promise<void>
   removeUser: (id: number) => Promise<void>
 
+  addWordGroup: (input: WordGroupInput) => Promise<void>
+  editWordGroup: (id: number, input: Partial<WordGroupInput>) => Promise<void>
+  removeWordGroup: (id: number) => Promise<void>
+  importWordGroups: (inputs: WordGroupInput[]) => Promise<ImportResult>
+  toggleGroupSelection: (id: number) => void
+
   setRevealStyle: (style: RevealStyle) => void
   setSoundEnabled: (on: boolean) => void
   setTheme: (theme: Theme) => void
@@ -93,6 +105,9 @@ export const useStore = create<AppState>((set, get) => ({
   challenges: [],
   users: [],
   stats: null,
+
+  wordGroups: [],
+  selectedGroupIds: [],
 
   mode: 'random',
   selectedUserIds: [],
@@ -111,12 +126,17 @@ export const useStore = create<AppState>((set, get) => ({
   bootstrap: async () => {
     set({ loading: true, loadError: null })
     try {
-      const [challenges, users, stats] = await Promise.all([
+      const [challenges, users, stats, wordGroups] = await Promise.all([
         api.getChallenges(),
         api.getUsers(),
         api.getStats(),
+        api.getWordGroups(),
       ])
-      set({ challenges, users, stats, loading: false })
+      // Por defecto se seleccionan los grupos que ya tienen palabras.
+      const selectedGroupIds = wordGroups
+        .filter((g) => g.words.length > 0)
+        .map((g) => g.id)
+      set({ challenges, users, stats, wordGroups, selectedGroupIds, loading: false })
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Error al cargar datos.'
       set({ loading: false, loadError: msg })
@@ -257,6 +277,70 @@ export const useStore = create<AppState>((set, get) => ({
       selectedUserIds: s.selectedUserIds.filter((x) => x !== id),
     }))
     void get().refreshStats()
+  },
+
+  addWordGroup: async (input) => {
+    const g = await api.createWordGroup(input)
+    set((s) => ({
+      wordGroups: [...s.wordGroups, g],
+      // Se autoselecciona si nace con palabras.
+      selectedGroupIds:
+        g.words.length > 0
+          ? [...s.selectedGroupIds, g.id]
+          : s.selectedGroupIds,
+    }))
+  },
+
+  editWordGroup: async (id, input) => {
+    const updated = await api.updateWordGroup(id, input)
+    set((s) => {
+      const hasWords = updated.words.length > 0
+      const wasSelected = s.selectedGroupIds.includes(id)
+      // Si se queda sin palabras, deja de estar seleccionable.
+      const selectedGroupIds = !hasWords
+        ? s.selectedGroupIds.filter((x) => x !== id)
+        : wasSelected
+          ? s.selectedGroupIds
+          : [...s.selectedGroupIds, id]
+      return {
+        wordGroups: s.wordGroups.map((g) => (g.id === id ? updated : g)),
+        selectedGroupIds,
+      }
+    })
+  },
+
+  removeWordGroup: async (id) => {
+    await api.deleteWordGroup(id)
+    set((s) => ({
+      wordGroups: s.wordGroups.filter((g) => g.id !== id),
+      selectedGroupIds: s.selectedGroupIds.filter((x) => x !== id),
+    }))
+  },
+
+  importWordGroups: async (inputs) => {
+    const res = await api.importWordGroups(inputs)
+    if (res.imported > 0) {
+      const prevIds = new Set(get().wordGroups.map((g) => g.id))
+      const wordGroups = await api.getWordGroups()
+      // Autoselecciona los grupos nuevos que tengan palabras.
+      const newSelectable = wordGroups
+        .filter((g) => !prevIds.has(g.id) && g.words.length > 0)
+        .map((g) => g.id)
+      set((s) => ({
+        wordGroups,
+        selectedGroupIds: [...new Set([...s.selectedGroupIds, ...newSelectable])],
+      }))
+    }
+    return res
+  },
+
+  toggleGroupSelection: (id) => {
+    const cur = get().selectedGroupIds
+    set({
+      selectedGroupIds: cur.includes(id)
+        ? cur.filter((x) => x !== id)
+        : [...cur, id],
+    })
   },
 
   setRevealStyle: (style) => {

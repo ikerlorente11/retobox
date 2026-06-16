@@ -9,6 +9,8 @@ import type {
   Stats,
   User,
   UserInput,
+  WordGroup,
+  WordGroupInput,
 } from './types'
 
 const BASE = '/api'
@@ -93,6 +95,26 @@ export const api = {
     }),
   deleteUser: (id: number) =>
     request<void>(`/users/${id}`, { method: 'DELETE' }),
+
+  // Word groups (mezclador)
+  getWordGroups: () => request<WordGroup[]>('/word-groups'),
+  createWordGroup: (body: WordGroupInput) =>
+    request<WordGroup>('/word-groups', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  updateWordGroup: (id: number, body: Partial<WordGroupInput>) =>
+    request<WordGroup>(`/word-groups/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+  deleteWordGroup: (id: number) =>
+    request<void>(`/word-groups/${id}`, { method: 'DELETE' }),
+  importWordGroups: (groups: WordGroupInput[]) =>
+    request<ImportResult>('/word-groups/import', {
+      method: 'POST',
+      body: JSON.stringify({ groups }),
+    }),
 
   // Draw / reset / stats
   draw: (body: DrawRequest) =>

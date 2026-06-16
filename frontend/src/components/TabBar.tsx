@@ -1,8 +1,8 @@
 import { motion } from 'framer-motion'
 import type { ComponentType, SVGProps } from 'react'
-import { DiceIcon, ListIcon, SettingsIcon, UsersIcon } from './icons'
+import { DiceIcon, ListIcon, SettingsIcon, ShuffleIcon, UsersIcon } from './icons'
 
-export type Tab = 'sorteo' | 'retos' | 'usuarios' | 'ajustes'
+export type Tab = 'sorteo' | 'retos' | 'usuarios' | 'combos' | 'ajustes'
 
 const TABS: {
   id: Tab
@@ -12,6 +12,7 @@ const TABS: {
   { id: 'sorteo', label: 'Sorteo', Icon: DiceIcon },
   { id: 'retos', label: 'Retos', Icon: ListIcon },
   { id: 'usuarios', label: 'Usuarios', Icon: UsersIcon },
+  { id: 'combos', label: 'Combos', Icon: ShuffleIcon },
   { id: 'ajustes', label: 'Ajustes', Icon: SettingsIcon },
 ]
 

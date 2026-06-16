@@ -271,6 +271,109 @@ def test_delete_user(client):
 
 
 # --------------------------------------------------------------------------
+# Word groups (mezclador)
+# --------------------------------------------------------------------------
+
+def test_create_and_list_word_group(client):
+    r = client.post(
+        "/api/word-groups",
+        json={"name": "Zona", "words": ["Cocina", "Salón", "Jardín"]},
+    )
+    assert r.status_code == 201, r.text
+    g = r.json()
+    assert g["id"] > 0
+    assert g["name"] == "Zona"
+    assert g["words"] == ["Cocina", "Salón", "Jardín"]
+    lst = client.get("/api/word-groups").json()
+    assert len(lst) == 1 and lst[0]["name"] == "Zona"
+
+
+def test_create_word_group_empty_name_422(client):
+    assert client.post("/api/word-groups", json={"name": "  "}).status_code == 422
+
+
+def test_create_word_group_defaults_empty_words(client):
+    g = client.post("/api/word-groups", json={"name": "Vacío"}).json()
+    assert g["words"] == []
+
+
+def test_word_group_cleans_and_dedups_words(client):
+    g = client.post(
+        "/api/word-groups",
+        json={"name": "Acción", "words": ["  Saltar ", "saltar", "", "Correr"]},
+    ).json()
+    # Trim + dedup case-insensitive + descarta vacías, conservando orden.
+    assert g["words"] == ["Saltar", "Correr"]
+
+
+def test_update_word_group(client):
+    g = client.post("/api/word-groups", json={"name": "Tiempo", "words": ["Ya"]}).json()
+    r = client.put(
+        f"/api/word-groups/{g['id']}",
+        json={"name": "Momento", "words": ["Ahora", "Luego"]},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["name"] == "Momento"
+    assert body["words"] == ["Ahora", "Luego"]
+
+
+def test_update_missing_word_group_404(client):
+    assert client.put("/api/word-groups/9999", json={"name": "x"}).status_code == 404
+
+
+def test_delete_word_group(client):
+    g = client.post("/api/word-groups", json={"name": "Borrar"}).json()
+    assert client.delete(f"/api/word-groups/{g['id']}").status_code == 204
+    assert client.delete(f"/api/word-groups/{g['id']}").status_code == 404
+    assert client.get("/api/word-groups").json() == []
+
+
+def test_import_word_groups_inserts_new(client):
+    payload = {
+        "groups": [
+            {"name": "Zona", "words": ["Cocina", "Salón"]},
+            {"name": "Acción", "words": ["Saltar"]},
+        ]
+    }
+    r = client.post("/api/word-groups/import", json=payload)
+    assert r.status_code == 200
+    assert r.json() == {"imported": 2, "skipped": 0}
+    names = {g["name"] for g in client.get("/api/word-groups").json()}
+    assert {"Zona", "Acción"} <= names
+
+
+def test_import_word_groups_skips_existing_name(client):
+    client.post("/api/word-groups", json={"name": "Zona", "words": ["A"]})
+    payload = {
+        "groups": [
+            {"name": "  zona  ", "words": ["B"]},  # duplicado (case/space) -> skip
+            {"name": "Tiempo", "words": ["Ya"]},
+        ]
+    }
+    r = client.post("/api/word-groups/import", json=payload)
+    assert r.json() == {"imported": 1, "skipped": 1}
+    names = [g["name"] for g in client.get("/api/word-groups").json()]
+    assert names.count("Zona") == 1
+
+
+def test_import_word_groups_dedup_within_file(client):
+    payload = {
+        "groups": [
+            {"name": "Repe", "words": ["A"]},
+            {"name": "repe", "words": ["B"]},  # mismo nombre -> skip
+        ]
+    }
+    r = client.post("/api/word-groups/import", json=payload)
+    assert r.json() == {"imported": 1, "skipped": 1}
+
+
+def test_import_word_groups_validates_each_422(client):
+    payload = {"groups": [{"name": "  "}]}
+    assert client.post("/api/word-groups/import", json=payload).status_code == 422
+
+
+# --------------------------------------------------------------------------
 # Draw — the three eligibility cases
 # --------------------------------------------------------------------------
 

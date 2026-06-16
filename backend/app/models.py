@@ -28,6 +28,14 @@ class User(BaseModel):
     color: str
 
 
+class WordGroup(BaseModel):
+    id: int
+    name: str
+    # Palabras del grupo (cada grupo es un rodillo en el mezclador).
+    words: list[str] = []
+    created_at: str
+
+
 class DrawResult(BaseModel):
     challenge: Challenge
     # Usuarios con nombre asignados (los que realizan el reto).
@@ -124,6 +132,66 @@ class UserCreate(BaseModel):
         if not v or not v.strip():
             raise ValueError("name no puede estar vacío")
         return v.strip()
+
+
+def _clean_words(words: list[str]) -> list[str]:
+    """Quita espacios, descarta vacías y elimina duplicados conservando el orden."""
+    seen: set[str] = set()
+    cleaned: list[str] = []
+    for w in words:
+        t = w.strip()
+        if not t:
+            continue
+        key = t.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        cleaned.append(t)
+    return cleaned
+
+
+class WordGroupCreate(BaseModel):
+    name: str
+    words: list[str] = []
+
+    @field_validator("name")
+    @classmethod
+    def name_not_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("name no puede estar vacío")
+        return v.strip()
+
+    @field_validator("words")
+    @classmethod
+    def clean_words(cls, v: list[str]) -> list[str]:
+        return _clean_words(v)
+
+
+class WordGroupUpdate(BaseModel):
+    name: str | None = None
+    words: list[str] | None = None
+
+    @field_validator("name")
+    @classmethod
+    def name_not_empty(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        if not v.strip():
+            raise ValueError("name no puede estar vacío")
+        return v.strip()
+
+    @field_validator("words")
+    @classmethod
+    def clean_words(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return v
+        return _clean_words(v)
+
+
+class ImportGroupsRequest(BaseModel):
+    # Refleja el fichero exportado: una lista de grupos. Cada grupo se valida
+    # igual que al crearlo. Los duplicados (por nombre) se omiten en la ruta.
+    groups: list[WordGroupCreate]
 
 
 class DrawRequest(BaseModel):

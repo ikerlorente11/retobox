@@ -17,6 +17,14 @@ export interface User {
   color: string // hex "#RRGGBB"
 }
 
+// Grupo de palabras del mezclador (cada grupo es un rodillo)
+export interface WordGroup {
+  id: number
+  name: string
+  words: string[]
+  created_at: string
+}
+
 export interface DrawResult {
   challenge: Challenge
   assigned_users: User[] // los que realizan el reto (vacío si no hay usuarios)
@@ -58,6 +66,11 @@ export interface ChallengeUpdate {
 export interface UserInput {
   name: string
   color?: string
+}
+
+export interface WordGroupInput {
+  name: string
+  words: string[]
 }
 
 // Resultado de importar un fichero de retos

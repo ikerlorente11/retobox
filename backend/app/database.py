@@ -6,6 +6,7 @@ dependency surface minimal. A single connection is shared across the app with
 module-level lock to keep writes consistent on SQLite.
 """
 
+import json
 import os
 import sqlite3
 import threading
@@ -66,6 +67,15 @@ def init_db() -> None:
                 color TEXT NOT NULL
             );
 
+            -- Grupos de palabras del juego de combinaciones (mezclador). Las
+            -- palabras se guardan como un array JSON en una sola columna TEXT.
+            CREATE TABLE IF NOT EXISTS word_groups (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                name       TEXT    NOT NULL,
+                words      TEXT    NOT NULL DEFAULT '[]',
+                created_at TEXT    NOT NULL
+            );
+
             CREATE INDEX IF NOT EXISTS idx_challenges_is_used
                 ON challenges(is_used);
             """
@@ -111,4 +121,17 @@ def user_row_to_dict(row: sqlite3.Row) -> dict:
         "id": row["id"],
         "name": row["name"],
         "color": row["color"],
+    }
+
+
+def word_group_row_to_dict(row: sqlite3.Row) -> dict:
+    try:
+        words = json.loads(row["words"]) if row["words"] else []
+    except (ValueError, TypeError):
+        words = []
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "words": [w for w in words if isinstance(w, str)],
+        "created_at": row["created_at"],
     }

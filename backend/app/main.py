@@ -4,6 +4,7 @@ Implements the REST contract defined in CONTRACT.md (all routes under /api).
 Persistence is SQLite via the standard-library driver; see app/database.py.
 """
 
+import json
 import os
 import random
 from contextlib import asynccontextmanager
@@ -17,6 +18,7 @@ from app.database import (
     get_connection,
     init_db,
     user_row_to_dict,
+    word_group_row_to_dict,
 )
 from app.models import (
     Challenge,
@@ -25,12 +27,16 @@ from app.models import (
     DrawRequest,
     DrawResult,
     Health,
+    ImportGroupsRequest,
     ImportRequest,
     ImportResult,
     ResetResult,
     Stats,
     User,
     UserCreate,
+    WordGroup,
+    WordGroupCreate,
+    WordGroupUpdate,
 )
 from app.seed import seed_if_empty
 
@@ -286,6 +292,118 @@ def delete_user(user_id: int) -> Response:
         conn.commit()
         if cur.rowcount == 0:
             raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+    return Response(status_code=204)
+
+
+# ---------------------------------------------------------------------------
+# Word groups — juego de combinaciones (mezclador)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/word-groups", response_model=list[WordGroup])
+def list_word_groups() -> list[WordGroup]:
+    conn = get_connection()
+    with _lock:
+        rows = conn.execute(
+            "SELECT * FROM word_groups ORDER BY id ASC"
+        ).fetchall()
+    return [WordGroup(**word_group_row_to_dict(r)) for r in rows]
+
+
+@app.post("/api/word-groups", response_model=WordGroup, status_code=201)
+def create_word_group(payload: WordGroupCreate) -> WordGroup:
+    conn = get_connection()
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc).isoformat()
+    with _lock:
+        cur = conn.execute(
+            "INSERT INTO word_groups (name, words, created_at) VALUES (?, ?, ?)",
+            (payload.name, json.dumps(payload.words, ensure_ascii=False), now),
+        )
+        conn.commit()
+        row = conn.execute(
+            "SELECT * FROM word_groups WHERE id = ?", (cur.lastrowid,)
+        ).fetchone()
+    return WordGroup(**word_group_row_to_dict(row))
+
+
+@app.post("/api/word-groups/import", response_model=ImportResult)
+def import_word_groups(payload: ImportGroupsRequest) -> ImportResult:
+    """Importa grupos desde un fichero exportado, evitando duplicados.
+
+    Un grupo se considera duplicado si su nombre (normalizado: sin espacios al
+    borde y sin distinguir mayúsculas) ya existe en la BD o se repite dentro del
+    propio fichero; en ese caso se omite.
+    """
+    conn = get_connection()
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc).isoformat()
+    imported = 0
+    skipped = 0
+    with _lock:
+        seen = {
+            r["name"].strip().lower()
+            for r in conn.execute("SELECT name FROM word_groups").fetchall()
+        }
+        for g in payload.groups:
+            key = g.name.strip().lower()
+            if key in seen:
+                skipped += 1
+                continue
+            conn.execute(
+                "INSERT INTO word_groups (name, words, created_at) VALUES (?, ?, ?)",
+                (g.name, json.dumps(g.words, ensure_ascii=False), now),
+            )
+            seen.add(key)
+            imported += 1
+        conn.commit()
+    return ImportResult(imported=imported, skipped=skipped)
+
+
+@app.put("/api/word-groups/{group_id}", response_model=WordGroup)
+def update_word_group(group_id: int, payload: WordGroupUpdate) -> WordGroup:
+    conn = get_connection()
+    with _lock:
+        row = conn.execute(
+            "SELECT * FROM word_groups WHERE id = ?", (group_id,)
+        ).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Grupo no encontrado.")
+
+        fields: list[str] = []
+        values: list = []
+        if payload.name is not None:
+            fields.append("name = ?")
+            values.append(payload.name)
+        if payload.words is not None:
+            fields.append("words = ?")
+            values.append(json.dumps(payload.words, ensure_ascii=False))
+
+        if fields:
+            values.append(group_id)
+            conn.execute(
+                f"UPDATE word_groups SET {', '.join(fields)} WHERE id = ?",
+                values,
+            )
+            conn.commit()
+
+        row = conn.execute(
+            "SELECT * FROM word_groups WHERE id = ?", (group_id,)
+        ).fetchone()
+    return WordGroup(**word_group_row_to_dict(row))
+
+
+@app.delete("/api/word-groups/{group_id}", status_code=204)
+def delete_word_group(group_id: int) -> Response:
+    conn = get_connection()
+    with _lock:
+        cur = conn.execute(
+            "DELETE FROM word_groups WHERE id = ?", (group_id,)
+        )
+        conn.commit()
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Grupo no encontrado.")
     return Response(status_code=204)
 
 

@@ -5,10 +5,14 @@ import { Modal } from '../components/Modal'
 import { DownloadIcon, ImportIcon } from '../components/icons'
 import {
   EXPORT_FILENAME,
-  EXPORT_MIME,
   buildRetosFileContent,
   parseRetosFile,
 } from '../lib/retosFile'
+import {
+  GROUPS_EXPORT_FILENAME,
+  buildGroupsFileContent,
+  parseGroupsFile,
+} from '../lib/groupsFile'
 
 export function AjustesPage() {
   const {
@@ -22,18 +26,13 @@ export function AjustesPage() {
     resetSession,
     challenges,
     importChallenges,
+    wordGroups,
+    importWordGroups,
   } = useStore()
 
   const [confirmReset, setConfirmReset] = useState(false)
   const [resetting, setResetting] = useState(false)
   const [resetCount, setResetCount] = useState<number | null>(null)
-
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [importing, setImporting] = useState(false)
-  const [dataMsg, setDataMsg] = useState<{ ok: boolean; text: string } | null>(
-    null,
-  )
-  const canExport = challenges.length > 0
 
   async function handleReset() {
     setResetting(true)
@@ -43,56 +42,6 @@ export function AjustesPage() {
       setConfirmReset(false)
     } finally {
       setResetting(false)
-    }
-  }
-
-  // Descarga el fichero de retos al dispositivo. Mantiene el objeto URL vivo un
-  // momento (revocarlo justo tras el click aborta la descarga en algunos
-  // navegadores) y muestra feedback.
-  function downloadRetos() {
-    const blob = new Blob([buildRetosFileContent(challenges)], {
-      type: EXPORT_MIME,
-    })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = EXPORT_FILENAME
-    a.rel = 'noopener'
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    setTimeout(() => URL.revokeObjectURL(url), 2000)
-    setDataMsg({
-      ok: true,
-      text: `${challenges.length} retos exportados a ${EXPORT_FILENAME}.`,
-    })
-  }
-
-  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    e.target.value = '' // permite volver a elegir el mismo fichero
-    if (!file) return
-    setImporting(true)
-    setDataMsg(null)
-    try {
-      const retos = parseRetosFile(await file.text())
-      const res = await importChallenges(retos)
-      setDataMsg({
-        ok: true,
-        text:
-          res.imported === 0
-            ? `Ningún reto nuevo: los ${res.skipped} ya estaban.`
-            : `${res.imported} añadidos${
-                res.skipped > 0 ? ` · ${res.skipped} ya existían` : ''
-              }.`,
-      })
-    } catch (err) {
-      setDataMsg({
-        ok: false,
-        text: err instanceof Error ? err.message : 'No se pudo importar.',
-      })
-    } finally {
-      setImporting(false)
     }
   }
 
@@ -174,50 +123,29 @@ export function AjustesPage() {
         </div>
       </section>
 
-      {/* Importar / Exportar */}
-      <section className="glass rounded-3xl p-5">
-        <h2 className="mb-1 font-bold">Exportar e importar</h2>
-        <p className="mb-4 text-sm text-slate-400">
-          Descarga tus retos en un fichero para guardarlos o compartirlos. Al
-          importar, los retos que ya existan no se duplican.
-        </p>
-        <div className="flex flex-col gap-3">
-          <button
-            onClick={() => downloadRetos()}
-            disabled={!canExport}
-            className="btn-primary w-full disabled:opacity-40"
-          >
-            <DownloadIcon className="h-5 w-5" />
-            Exportar retos
-          </button>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={importing}
-            className="btn-ghost w-full"
-          >
-            <ImportIcon className="h-5 w-5" />
-            {importing ? 'Importando…' : 'Importar fichero'}
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="application/json,.json"
-            className="hidden"
-            onChange={handleImportFile}
-          />
-        </div>
-        {dataMsg && (
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className={`mt-3 text-center text-sm ${
-              dataMsg.ok ? 'text-emerald-300' : 'text-rose-300'
-            }`}
-          >
-            {dataMsg.text}
-          </motion.p>
-        )}
-      </section>
+      {/* Exportar / importar Retos */}
+      <ExportImportCard
+        title="Retos: exportar e importar"
+        hint="Descarga tus retos en un fichero para guardarlos o compartirlos. Al importar, los retos que ya existan no se duplican."
+        exportLabel="Exportar retos"
+        noun="retos"
+        canExport={challenges.length > 0}
+        filename={EXPORT_FILENAME}
+        buildContent={() => buildRetosFileContent(challenges)}
+        importFile={(text) => importChallenges(parseRetosFile(text))}
+      />
+
+      {/* Exportar / importar Combos (grupos de palabras) */}
+      <ExportImportCard
+        title="Combos: exportar e importar"
+        hint="Descarga tus grupos de palabras en un fichero. Al importar, los grupos que ya existan (por nombre) no se duplican."
+        exportLabel="Exportar grupos"
+        noun="grupos"
+        canExport={wordGroups.length > 0}
+        filename={GROUPS_EXPORT_FILENAME}
+        buildContent={() => buildGroupsFileContent(wordGroups)}
+        importFile={(text) => importWordGroups(parseGroupsFile(text))}
+      />
 
       {/* Reset */}
       <section className="glass rounded-3xl p-5">
@@ -271,6 +199,119 @@ export function AjustesPage() {
         </div>
       </Modal>
     </div>
+  )
+}
+
+// Tarjeta reutilizable de exportar/importar (se usa para Retos y para Combos).
+function ExportImportCard({
+  title,
+  hint,
+  exportLabel,
+  noun,
+  canExport,
+  filename,
+  buildContent,
+  importFile,
+}: {
+  title: string
+  hint: string
+  exportLabel: string
+  noun: string
+  canExport: boolean
+  filename: string
+  buildContent: () => string
+  importFile: (text: string) => Promise<{ imported: number; skipped: number }>
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [importing, setImporting] = useState(false)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+
+  // Descarga el fichero. Mantiene el objeto URL vivo un momento (revocarlo justo
+  // tras el click aborta la descarga en algunos navegadores).
+  function download() {
+    const blob = new Blob([buildContent()], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.rel = 'noopener'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(url), 2000)
+    setMsg({ ok: true, text: `Exportado a ${filename}.` })
+  }
+
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = '' // permite volver a elegir el mismo fichero
+    if (!file) return
+    setImporting(true)
+    setMsg(null)
+    try {
+      const res = await importFile(await file.text())
+      setMsg({
+        ok: true,
+        text:
+          res.imported === 0
+            ? `Nada nuevo: ${res.skipped} ya ${
+                res.skipped === 1 ? 'estaba' : 'estaban'
+              }.`
+            : `${res.imported} ${noun} añadidos${
+                res.skipped > 0 ? ` · ${res.skipped} ya existían` : ''
+              }.`,
+      })
+    } catch (err) {
+      setMsg({
+        ok: false,
+        text: err instanceof Error ? err.message : 'No se pudo importar.',
+      })
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  return (
+    <section className="glass rounded-3xl p-5">
+      <h2 className="mb-1 font-bold">{title}</h2>
+      <p className="mb-4 text-sm text-slate-400">{hint}</p>
+      <div className="flex flex-col gap-3">
+        <button
+          onClick={download}
+          disabled={!canExport}
+          className="btn-primary w-full disabled:opacity-40"
+        >
+          <DownloadIcon className="h-5 w-5" />
+          {exportLabel}
+        </button>
+        <button
+          onClick={() => inputRef.current?.click()}
+          disabled={importing}
+          className="btn-ghost w-full"
+        >
+          <ImportIcon className="h-5 w-5" />
+          {importing ? 'Importando…' : 'Importar fichero'}
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={onFile}
+        />
+      </div>
+      {msg && (
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className={`mt-3 text-center text-sm ${
+            msg.ok ? 'text-emerald-300' : 'text-rose-300'
+          }`}
+        >
+          {msg.text}
+        </motion.p>
+      )}
+    </section>
   )
 }
 

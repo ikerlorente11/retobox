@@ -37,6 +37,18 @@ export const SettingsIcon = (p: P) => (
   </svg>
 )
 
+// Mezclar / combinar (pestaña del mezclador de palabras).
+export const ShuffleIcon = (p: P) => (
+  <svg viewBox="0 0 24 24" fill="none" strokeWidth={2} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <path d="M16 3h5v5" />
+    <path d="M21 3l-7 7" />
+    <path d="M16 21h5v-5" />
+    <path d="M21 21l-7-7" />
+    <path d="M3 4l4 4" />
+    <path d="M3 20l7-7" />
+  </svg>
+)
+
 export const PlusIcon = (p: P) => (
   <svg viewBox="0 0 24 24" fill="none" strokeWidth={2.4} stroke="currentColor" strokeLinecap="round" {...p}>
     <path d="M12 5v14M5 12h14" />

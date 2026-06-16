@@ -5,6 +5,7 @@ import { TabBar, type Tab } from './components/TabBar'
 import { SorteoPage } from './pages/SorteoPage'
 import { RetosPage } from './pages/RetosPage'
 import { UsuariosPage } from './pages/UsuariosPage'
+import { CombosPage } from './pages/CombosPage'
 import { AjustesPage } from './pages/AjustesPage'
 
 export default function App() {
@@ -32,6 +33,7 @@ export default function App() {
           {tab === 'sorteo' && <SorteoPage goTo={setTab} />}
           {tab === 'retos' && <RetosPage />}
           {tab === 'usuarios' && <UsuariosPage />}
+          {tab === 'combos' && <CombosPage />}
           {tab === 'ajustes' && <AjustesPage />}
         </motion.main>
       )}

@@ -29,6 +29,17 @@ id: int
 name: str              # obligatorio
 color: str             # hex "#RRGGBB" (avatar de color)
 ```
+### WordGroup (mezclador / juego de combinaciones)
+```
+id: int
+name: str              # obligatorio
+words: str[]           # palabras del grupo; se limpian (trim), se descartan vacías
+                       # y se eliminan duplicados (case-insensitive) conservando orden
+created_at: str        # ISO 8601
+```
+Cada grupo es un "rodillo": en el frontend se seleccionan grupos y al combinar
+sale una palabra aleatoria de cada uno (la combinación es 100% del cliente; el
+backend solo persiste los grupos).
 
 ## API REST (todo bajo prefijo `/api`)
 Todas las respuestas en JSON. CORS abierto (`*`) en el backend.
@@ -44,6 +55,13 @@ Todas las respuestas en JSON. CORS abierto (`*`) en el backend.
 - `GET    /api/users`                 → `User[]`
 - `POST   /api/users`                 body `{name, color?}` (color opcional; backend asigna uno si falta) → `User` (201)
 - `DELETE /api/users/{id}`            → 204
+- `GET    /api/word-groups`           → `WordGroup[]`
+- `POST   /api/word-groups`           body `{name, words?}` → `WordGroup` (201)
+- `PUT    /api/word-groups/{id}`      body `{name?, words?}` → `WordGroup`
+- `DELETE /api/word-groups/{id}`      → 204
+- `POST   /api/word-groups/import`    body `{groups: [{name, words?}]}` → `{imported: int, skipped: int}`
+                                       Importa grupos evitando duplicados (omite los de nombre ya existente,
+                                       normalizado; también dentro del propio fichero).
 - `POST   /api/draw`                  body `{mode: "random"|"selected", selected_user_ids?: int[]}` → `DrawResult`
 - `POST   /api/reset`                 → `{reset: int}` (nº de cartas reseteadas)
 - `GET    /api/stats`                 → `{total: int, used: int, available: int, users: int}`
