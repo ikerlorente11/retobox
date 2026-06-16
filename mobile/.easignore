@@ -1,0 +1,9 @@
+# Excluye del archivo que se sube a EAS Build lo que no hace falta (EAS instala
+# dependencias y regenera el proyecto nativo en el servidor). Acelera la subida.
+node_modules/
+android/
+ios/
+.expo/
+dist/
+web-build/
+*.log
