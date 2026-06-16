@@ -6,6 +6,7 @@ import type {
   ChallengeUpdate,
   DrawMode,
   DrawResult,
+  ImportResult,
   RevealStyle,
   Stats,
   Theme,
@@ -78,6 +79,7 @@ interface AppState {
   addChallenge: (input: ChallengeInput) => Promise<void>
   editChallenge: (id: number, input: ChallengeUpdate) => Promise<void>
   removeChallenge: (id: number) => Promise<void>
+  importChallenges: (inputs: ChallengeInput[]) => Promise<ImportResult>
 
   addUser: (input: UserInput) => Promise<void>
   removeUser: (id: number) => Promise<void>
@@ -228,6 +230,18 @@ export const useStore = create<AppState>((set, get) => ({
     await api.deleteChallenge(id)
     set((s) => ({ challenges: s.challenges.filter((c) => c.id !== id) }))
     void get().refreshStats()
+  },
+
+  importChallenges: async (inputs) => {
+    const res = await api.importChallenges(inputs)
+    // Recargamos la lista completa para reflejar lo realmente insertado (ids,
+    // created_at) y reconciliar el contador de stats.
+    if (res.imported > 0) {
+      const challenges = await api.getChallenges()
+      set({ challenges })
+      void get().refreshStats()
+    }
+    return res
   },
 
   addUser: async (input) => {

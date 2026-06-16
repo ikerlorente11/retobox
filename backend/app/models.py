@@ -48,6 +48,12 @@ class ResetResult(BaseModel):
     reset: int
 
 
+class ImportResult(BaseModel):
+    # Retos nuevos insertados y retos omitidos por estar ya en la BD (duplicados).
+    imported: int
+    skipped: int
+
+
 class Health(BaseModel):
     status: str
 
@@ -80,6 +86,13 @@ class ChallengeCreate(BaseModel):
                 "involved_users no puede ser menor que required_users"
             )
         return self
+
+
+class ImportRequest(BaseModel):
+    # Refleja el formato del fichero exportado: una lista de retos. Cada reto se
+    # valida igual que al crearlo (título no vacío, required_users >= 1, etc.).
+    # Campos volátiles del export (id, is_used, created_at) se ignoran.
+    challenges: list[ChallengeCreate]
 
 
 class ChallengeUpdate(BaseModel):

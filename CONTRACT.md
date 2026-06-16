@@ -37,6 +37,10 @@ Todas las respuestas en JSON. CORS abierto (`*`) en el backend.
 - `POST   /api/challenges`            body `{title, description?, required_users, involved_users?, repeatable?}` → `Challenge` (201)
 - `PUT    /api/challenges/{id}`       body `{title?, description?, required_users?, involved_users?, repeatable?}` → `Challenge`
 - `DELETE /api/challenges/{id}`       → 204
+- `POST   /api/challenges/import`     body `{challenges: [{title, description?, required_users, involved_users?, repeatable?}]}` → `{imported: int, skipped: int}`
+                                       Importa retos evitando duplicados: se omite (cuenta en `skipped`) cualquier reto
+                                       cuyo título (sin espacios y sin distinguir mayúsculas) ya exista en la BD o se repita
+                                       dentro del propio fichero. Cada reto se valida igual que en `POST /api/challenges`.
 - `GET    /api/users`                 → `User[]`
 - `POST   /api/users`                 body `{name, color?}` (color opcional; backend asigna uno si falta) → `User` (201)
 - `DELETE /api/users/{id}`            → 204

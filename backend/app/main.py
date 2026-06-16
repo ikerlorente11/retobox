@@ -25,6 +25,8 @@ from app.models import (
     DrawRequest,
     DrawResult,
     Health,
+    ImportRequest,
+    ImportResult,
     ResetResult,
     Stats,
     User,
@@ -124,6 +126,50 @@ def create_challenge(payload: ChallengeCreate) -> Challenge:
             "SELECT * FROM challenges WHERE id = ?", (cur.lastrowid,)
         ).fetchone()
     return Challenge(**challenge_row_to_dict(row))
+
+
+@app.post("/api/challenges/import", response_model=ImportResult)
+def import_challenges(payload: ImportRequest) -> ImportResult:
+    """Importa retos desde un fichero exportado, evitando duplicados.
+
+    Un reto se considera duplicado si su título (normalizado: sin espacios al
+    borde y sin distinguir mayúsculas) ya existe en la BD; en ese caso se omite.
+    También se descartan duplicados dentro del propio fichero.
+    """
+    conn = get_connection()
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc).isoformat()
+    imported = 0
+    skipped = 0
+    with _lock:
+        # Conjunto de títulos ya presentes (normalizados) para descartar duplicados.
+        seen = {
+            r["title"].strip().lower()
+            for r in conn.execute("SELECT title FROM challenges").fetchall()
+        }
+        for ch in payload.challenges:
+            key = ch.title.strip().lower()
+            if key in seen:
+                skipped += 1
+                continue
+            conn.execute(
+                "INSERT INTO challenges "
+                "(title, description, required_users, involved_users, repeatable, is_used, created_at) "
+                "VALUES (?, ?, ?, ?, ?, 0, ?)",
+                (
+                    ch.title,
+                    ch.description,
+                    ch.required_users,
+                    ch.involved_users,
+                    int(ch.repeatable),
+                    now,
+                ),
+            )
+            seen.add(key)
+            imported += 1
+        conn.commit()
+    return ImportResult(imported=imported, skipped=skipped)
 
 
 @app.put("/api/challenges/{challenge_id}", response_model=Challenge)

@@ -60,6 +60,12 @@ export interface UserInput {
   color?: string
 }
 
+// Resultado de importar un fichero de retos
+export interface ImportResult {
+  imported: number // retos nuevos añadidos
+  skipped: number // retos omitidos por estar ya en la BD (duplicados)
+}
+
 export type RevealStyle = 'slot' | 'dice'
 
 export type Theme = 'dark' | 'light'

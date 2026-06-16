@@ -166,6 +166,81 @@ def test_draw_anonymous_count_zero_without_involved(client):
 
 
 # --------------------------------------------------------------------------
+# Challenges — import (dedup)
+# --------------------------------------------------------------------------
+
+def test_import_inserts_new_challenges(client):
+    payload = {
+        "challenges": [
+            {"title": "Importado A", "required_users": 1},
+            {"title": "Importado B", "required_users": 2, "involved_users": 4},
+        ]
+    }
+    r = client.post("/api/challenges/import", json=payload)
+    assert r.status_code == 200
+    assert r.json() == {"imported": 2, "skipped": 0}
+    titles = {c["title"] for c in client.get("/api/challenges").json()}
+    assert {"Importado A", "Importado B"} <= titles
+
+
+def test_import_skips_existing_titles(client):
+    make_challenge(client, title="Ya existe")
+    payload = {
+        "challenges": [
+            {"title": "Ya existe", "required_users": 1},  # duplicado -> skip
+            {"title": "Nuevo", "required_users": 1},
+        ]
+    }
+    r = client.post("/api/challenges/import", json=payload)
+    assert r.json() == {"imported": 1, "skipped": 1}
+    # No se duplicó: sigue habiendo un solo "Ya existe".
+    titles = [c["title"] for c in client.get("/api/challenges").json()]
+    assert titles.count("Ya existe") == 1
+
+
+def test_import_dedup_is_case_and_space_insensitive(client):
+    make_challenge(client, title="Reto Único")
+    payload = {"challenges": [{"title": "  reto único  ", "required_users": 1}]}
+    r = client.post("/api/challenges/import", json=payload)
+    assert r.json() == {"imported": 0, "skipped": 1}
+
+
+def test_import_dedup_within_file(client):
+    payload = {
+        "challenges": [
+            {"title": "Repetido", "required_users": 1},
+            {"title": "repetido", "required_users": 1},  # mismo título -> skip
+        ]
+    }
+    r = client.post("/api/challenges/import", json=payload)
+    assert r.json() == {"imported": 1, "skipped": 1}
+
+
+def test_import_validates_each_challenge_422(client):
+    payload = {"challenges": [{"title": "x", "required_users": 0}]}
+    assert client.post("/api/challenges/import", json=payload).status_code == 422
+
+
+def test_import_ignores_volatile_fields(client):
+    # id/is_used/created_at del export se ignoran; el reto entra como no usado.
+    payload = {
+        "challenges": [
+            {
+                "id": 999,
+                "title": "Con basura",
+                "required_users": 1,
+                "is_used": True,
+                "created_at": "2000-01-01T00:00:00Z",
+            }
+        ]
+    }
+    r = client.post("/api/challenges/import", json=payload)
+    assert r.json() == {"imported": 1, "skipped": 0}
+    c = client.get("/api/challenges").json()[0]
+    assert c["title"] == "Con basura" and c["is_used"] is False
+
+
+# --------------------------------------------------------------------------
 # Users
 # --------------------------------------------------------------------------
 

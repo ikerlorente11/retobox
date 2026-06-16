@@ -5,6 +5,7 @@ import type {
   ChallengeUpdate,
   DrawRequest,
   DrawResult,
+  ImportResult,
   Stats,
   User,
   UserInput,
@@ -77,6 +78,11 @@ export const api = {
     }),
   deleteChallenge: (id: number) =>
     request<void>(`/challenges/${id}`, { method: 'DELETE' }),
+  importChallenges: (challenges: ChallengeInput[]) =>
+    request<ImportResult>('/challenges/import', {
+      method: 'POST',
+      body: JSON.stringify({ challenges }),
+    }),
 
   // Users
   getUsers: () => request<User[]>('/users'),

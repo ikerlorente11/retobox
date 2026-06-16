@@ -55,3 +55,21 @@ export const EditIcon = (p: P) => (
     <path d="M14 5l4 4" />
   </svg>
 )
+
+// Descargar: flecha hacia abajo cayendo sobre una bandeja.
+export const DownloadIcon = (p: P) => (
+  <svg viewBox="0 0 24 24" fill="none" strokeWidth={2} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <path d="M12 3v11" />
+    <path d="M7.5 9.5 12 14l4.5-4.5" />
+    <path d="M5 19h14" />
+  </svg>
+)
+
+// Importar: flecha hacia arriba saliendo de una bandeja (meter un fichero).
+export const ImportIcon = (p: P) => (
+  <svg viewBox="0 0 24 24" fill="none" strokeWidth={2} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <path d="M12 14V3" />
+    <path d="M7.5 7.5 12 3l4.5 4.5" />
+    <path d="M5 19h14" />
+  </svg>
+)
