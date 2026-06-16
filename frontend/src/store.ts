@@ -4,6 +4,8 @@ import type {
   Challenge,
   ChallengeInput,
   ChallengeUpdate,
+  Collection,
+  CollectionInput,
   DrawMode,
   DrawResult,
   ImportResult,
@@ -19,6 +21,7 @@ import type {
 const REVEAL_KEY = 'retobox.revealStyle'
 const SOUND_KEY = 'retobox.sound'
 const THEME_KEY = 'retobox.theme'
+const COLLECTION_KEY = 'retobox.collection'
 
 function loadRevealStyle(): RevealStyle {
   const v = localStorage.getItem(REVEAL_KEY)
@@ -48,6 +51,10 @@ interface AppState {
   challenges: Challenge[]
   users: User[]
   stats: Stats | null
+
+  // colecciones (agrupan los retos; la activa filtra Retos y el Sorteo)
+  collections: Collection[]
+  activeCollectionId: number | null
 
   // mezclador (grupos de palabras)
   wordGroups: WordGroup[]
@@ -82,6 +89,11 @@ interface AppState {
   clearResult: () => void
   resetSession: () => Promise<number>
 
+  setActiveCollection: (id: number) => Promise<void>
+  addCollection: (input: CollectionInput) => Promise<void>
+  editCollection: (id: number, input: CollectionInput) => Promise<void>
+  removeCollection: (id: number) => Promise<void>
+
   addChallenge: (input: ChallengeInput) => Promise<void>
   editChallenge: (id: number, input: ChallengeUpdate) => Promise<void>
   removeChallenge: (id: number) => Promise<void>
@@ -106,6 +118,9 @@ export const useStore = create<AppState>((set, get) => ({
   users: [],
   stats: null,
 
+  collections: [],
+  activeCollectionId: null,
+
   wordGroups: [],
   selectedGroupIds: [],
 
@@ -126,17 +141,37 @@ export const useStore = create<AppState>((set, get) => ({
   bootstrap: async () => {
     set({ loading: true, loadError: null })
     try {
-      const [challenges, users, stats, wordGroups] = await Promise.all([
-        api.getChallenges(),
+      const [collections, users, wordGroups] = await Promise.all([
+        api.getCollections(),
         api.getUsers(),
-        api.getStats(),
         api.getWordGroups(),
+      ])
+      // Colección activa: la guardada si sigue existiendo, si no la primera.
+      const stored = Number(localStorage.getItem(COLLECTION_KEY))
+      const activeCollectionId =
+        collections.find((c) => c.id === stored)?.id ??
+        collections[0]?.id ??
+        null
+      const [challenges, stats] = await Promise.all([
+        api.getChallenges(activeCollectionId ?? undefined),
+        api.getStats(activeCollectionId ?? undefined),
       ])
       // Por defecto se seleccionan los grupos que ya tienen palabras.
       const selectedGroupIds = wordGroups
         .filter((g) => g.words.length > 0)
         .map((g) => g.id)
-      set({ challenges, users, stats, wordGroups, selectedGroupIds, loading: false })
+      if (activeCollectionId != null)
+        localStorage.setItem(COLLECTION_KEY, String(activeCollectionId))
+      set({
+        collections,
+        activeCollectionId,
+        challenges,
+        users,
+        stats,
+        wordGroups,
+        selectedGroupIds,
+        loading: false,
+      })
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Error al cargar datos.'
       set({ loading: false, loadError: msg })
@@ -145,7 +180,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   refreshStats: async () => {
     try {
-      const stats = await api.getStats()
+      const stats = await api.getStats(get().activeCollectionId ?? undefined)
       set({ stats })
     } catch {
       /* silencioso */
@@ -179,10 +214,11 @@ export const useStore = create<AppState>((set, get) => ({
     }
 
     try {
+      const collectionId = get().activeCollectionId ?? undefined
       const body =
         mode === 'selected' && users.length > 0
-          ? { mode, selected_user_ids: selectedUserIds }
-          : { mode: 'random' as const }
+          ? { mode, selected_user_ids: selectedUserIds, collection_id: collectionId }
+          : { mode: 'random' as const, collection_id: collectionId }
       const result = await api.draw(body)
       // Reflejar el estado de la carta de forma optimista. Las repetibles no se
       // marcan como usadas (el backend devuelve is_used=false) y por tanto no
@@ -222,7 +258,7 @@ export const useStore = create<AppState>((set, get) => ({
   clearResult: () => set({ result: null }),
 
   resetSession: async () => {
-    const { reset } = await api.reset()
+    const { reset } = await api.reset(get().activeCollectionId ?? undefined)
     set((s) => ({
       challenges: s.challenges.map((c) => ({ ...c, is_used: false })),
       result: null,
@@ -232,8 +268,50 @@ export const useStore = create<AppState>((set, get) => ({
     return reset
   },
 
+  setActiveCollection: async (id) => {
+    localStorage.setItem(COLLECTION_KEY, String(id))
+    set({ activeCollectionId: id, result: null, drawError: null })
+    try {
+      const [challenges, stats] = await Promise.all([
+        api.getChallenges(id),
+        api.getStats(id),
+      ])
+      set({ challenges, stats })
+    } catch {
+      /* silencioso */
+    }
+  },
+
+  addCollection: async (input) => {
+    const col = await api.createCollection(input)
+    set((s) => ({ collections: [...s.collections, col] }))
+    // Cambiamos a la colección recién creada (vacía, lista para añadir retos).
+    await get().setActiveCollection(col.id)
+  },
+
+  editCollection: async (id, input) => {
+    const updated = await api.updateCollection(id, input)
+    set((s) => ({
+      collections: s.collections.map((c) => (c.id === id ? updated : c)),
+    }))
+  },
+
+  removeCollection: async (id) => {
+    await api.deleteCollection(id)
+    const wasActive = get().activeCollectionId === id
+    set((s) => ({ collections: s.collections.filter((c) => c.id !== id) }))
+    if (wasActive) {
+      const first = get().collections[0]
+      if (first) await get().setActiveCollection(first.id)
+    }
+  },
+
   addChallenge: async (input) => {
-    const c = await api.createChallenge(input)
+    const collectionId = get().activeCollectionId ?? undefined
+    const c = await api.createChallenge({
+      ...input,
+      collection_id: input.collection_id ?? collectionId,
+    })
     set((s) => ({ challenges: [...s.challenges, c] }))
     void get().refreshStats()
   },
@@ -253,11 +331,11 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   importChallenges: async (inputs) => {
-    const res = await api.importChallenges(inputs)
-    // Recargamos la lista completa para reflejar lo realmente insertado (ids,
-    // created_at) y reconciliar el contador de stats.
+    const collectionId = get().activeCollectionId ?? undefined
+    const res = await api.importChallenges(inputs, collectionId)
+    // Recargamos la lista de la colección activa para reflejar lo insertado.
     if (res.imported > 0) {
-      const challenges = await api.getChallenges()
+      const challenges = await api.getChallenges(collectionId)
       set({ challenges })
       void get().refreshStats()
     }

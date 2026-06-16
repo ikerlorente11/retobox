@@ -58,7 +58,15 @@ def init_db() -> None:
                 involved_users INTEGER,
                 repeatable     INTEGER NOT NULL DEFAULT 0,
                 is_used        INTEGER NOT NULL DEFAULT 0,
-                created_at     TEXT    NOT NULL
+                created_at     TEXT    NOT NULL,
+                collection_id  INTEGER
+            );
+
+            -- Colecciones que agrupan retos (p. ej. para distintas situaciones).
+            CREATE TABLE IF NOT EXISTS collections (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                name       TEXT    NOT NULL,
+                created_at TEXT    NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS users (
@@ -95,8 +103,53 @@ def init_db() -> None:
             conn.execute(
                 "ALTER TABLE challenges ADD COLUMN repeatable INTEGER NOT NULL DEFAULT 0"
             )
+        if "collection_id" not in existing:
+            conn.execute(
+                "ALTER TABLE challenges ADD COLUMN collection_id INTEGER"
+            )
+
+        # El índice sobre collection_id va aquí (tras garantizar la columna en
+        # tablas previas; en el CREATE de arriba la tabla podía ya existir sin ella).
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_challenges_collection "
+            "ON challenges(collection_id)"
+        )
+
+        # Siempre debe existir al menos una colección. Los retos sin colección
+        # (BD previas) se asignan a la colección por defecto "General".
+        default_id = _get_or_create_default_collection(conn)
+        conn.execute(
+            "UPDATE challenges SET collection_id = ? WHERE collection_id IS NULL",
+            (default_id,),
+        )
 
         conn.commit()
+
+
+DEFAULT_COLLECTION_NAME = "General"
+
+
+def _get_or_create_default_collection(conn: sqlite3.Connection) -> int:
+    """Devuelve el id de la colección por defecto (la primera). La crea si no hay."""
+    row = conn.execute(
+        "SELECT id FROM collections ORDER BY id ASC LIMIT 1"
+    ).fetchone()
+    if row is not None:
+        return row["id"]
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc).isoformat()
+    cur = conn.execute(
+        "INSERT INTO collections (name, created_at) VALUES (?, ?)",
+        (DEFAULT_COLLECTION_NAME, now),
+    )
+    return cur.lastrowid
+
+
+def get_default_collection_id() -> int:
+    """Id de la colección por defecto, para asignar retos sin colección explícita."""
+    conn = get_connection()
+    return _get_or_create_default_collection(conn)
 
 
 # ---------------------------------------------------------------------------
@@ -112,6 +165,15 @@ def challenge_row_to_dict(row: sqlite3.Row) -> dict:
         "involved_users": row["involved_users"],
         "repeatable": bool(row["repeatable"]),
         "is_used": bool(row["is_used"]),
+        "created_at": row["created_at"],
+        "collection_id": row["collection_id"],
+    }
+
+
+def collection_row_to_dict(row: sqlite3.Row) -> dict:
+    return {
+        "id": row["id"],
+        "name": row["name"],
         "created_at": row["created_at"],
     }
 

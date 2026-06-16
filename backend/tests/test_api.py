@@ -2,7 +2,7 @@
 health, CRUD, validation, the three /draw eligibility cases, error codes,
 no-repeat behaviour, reset and stats."""
 
-from conftest import make_challenge, make_user
+from conftest import make_challenge, make_collection, make_user
 
 from app.seed import SEED_CHALLENGES, seed_if_empty
 
@@ -268,6 +268,95 @@ def test_delete_user(client):
     u = make_user(client, "Borrar")
     assert client.delete(f"/api/users/{u['id']}").status_code == 204
     assert client.get("/api/users").json() == []
+
+
+# --------------------------------------------------------------------------
+# Collections
+# --------------------------------------------------------------------------
+
+def test_create_challenge_assigns_default_collection(client):
+    c = make_challenge(client)
+    assert c["collection_id"] > 0
+    cols = client.get("/api/collections").json()
+    assert any(col["id"] == c["collection_id"] for col in cols)
+
+
+def test_create_and_list_collections(client):
+    a = make_collection(client, "Fiesta")
+    b = make_collection(client, "Tranqui")
+    cols = {col["name"] for col in client.get("/api/collections").json()}
+    assert {"Fiesta", "Tranqui"} <= cols
+    assert a["id"] != b["id"]
+
+
+def test_create_collection_empty_name_422(client):
+    assert client.post("/api/collections", json={"name": "  "}).status_code == 422
+
+
+def test_challenges_filtered_by_collection(client):
+    col1 = make_collection(client, "Uno")
+    col2 = make_collection(client, "Dos")
+    make_challenge(client, title="A", collection_id=col1["id"])
+    make_challenge(client, title="B", collection_id=col2["id"])
+    lst1 = client.get(f"/api/challenges?collection_id={col1['id']}").json()
+    assert [c["title"] for c in lst1] == ["A"]
+    lst2 = client.get(f"/api/challenges?collection_id={col2['id']}").json()
+    assert [c["title"] for c in lst2] == ["B"]
+
+
+def test_draw_only_uses_selected_collection(client):
+    col1 = make_collection(client, "Uno")
+    col2 = make_collection(client, "Dos")
+    make_challenge(client, title="SoloUno", collection_id=col1["id"])
+    make_challenge(client, title="SoloDos", collection_id=col2["id"])
+    # Sortear en col1 siempre saca el reto de col1.
+    for _ in range(2):
+        client.post("/api/reset", json=None)
+        body = client.post(
+            "/api/draw", json={"mode": "random", "collection_id": col1["id"]}
+        ).json()
+        assert body["challenge"]["title"] == "SoloUno"
+
+
+def test_update_and_delete_collection(client):
+    col = make_collection(client, "Original")
+    r = client.put(f"/api/collections/{col['id']}", json={"name": "Editada"})
+    assert r.status_code == 200 and r.json()["name"] == "Editada"
+    # Crear otra para poder borrar (no se puede borrar la única).
+    make_collection(client, "Otra")
+    assert client.delete(f"/api/collections/{col['id']}").status_code == 204
+
+
+def test_delete_collection_removes_its_challenges(client):
+    col = make_collection(client, "Borrable")
+    make_collection(client, "Queda")  # para no ser la única
+    make_challenge(client, title="Adios", collection_id=col["id"])
+    assert client.delete(f"/api/collections/{col['id']}").status_code == 204
+    # El reto de esa colección desaparece.
+    titles = [c["title"] for c in client.get("/api/challenges").json()]
+    assert "Adios" not in titles
+
+
+def test_cannot_delete_last_collection(client):
+    make_challenge(client)  # fuerza la colección por defecto
+    cols = client.get("/api/collections").json()
+    assert len(cols) == 1
+    assert client.delete(f"/api/collections/{cols[0]['id']}").status_code == 409
+
+
+def test_stats_and_reset_per_collection(client):
+    col1 = make_collection(client, "Uno")
+    col2 = make_collection(client, "Dos")
+    make_challenge(client, title="A", collection_id=col1["id"])
+    make_challenge(client, title="B", collection_id=col2["id"])
+    client.post("/api/draw", json={"mode": "random", "collection_id": col1["id"]})
+    s1 = client.get(f"/api/stats?collection_id={col1['id']}").json()
+    assert s1["total"] == 1 and s1["used"] == 1 and s1["available"] == 0
+    s2 = client.get(f"/api/stats?collection_id={col2['id']}").json()
+    assert s2["used"] == 0
+    # Reset solo de col1.
+    r = client.post(f"/api/reset?collection_id={col1['id']}")
+    assert r.json()["reset"] == 1
 
 
 # --------------------------------------------------------------------------

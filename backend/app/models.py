@@ -20,6 +20,14 @@ class Challenge(BaseModel):
     repeatable: bool = False
     is_used: bool = False
     created_at: str
+    # Colección a la que pertenece el reto.
+    collection_id: int
+
+
+class Collection(BaseModel):
+    id: int
+    name: str
+    created_at: str
 
 
 class User(BaseModel):
@@ -76,6 +84,8 @@ class ChallengeCreate(BaseModel):
     required_users: int = Field(..., ge=1)
     involved_users: int | None = Field(default=None, ge=1)
     repeatable: bool = False
+    # Opcional: si no se envía se usa la colección por defecto.
+    collection_id: int | None = None
 
     @field_validator("title")
     @classmethod
@@ -101,6 +111,37 @@ class ImportRequest(BaseModel):
     # valida igual que al crearlo (título no vacío, required_users >= 1, etc.).
     # Campos volátiles del export (id, is_used, created_at) se ignoran.
     challenges: list[ChallengeCreate]
+    # Colección destino de la importación (por defecto la colección por defecto).
+    collection_id: int | None = None
+
+
+class CollectionCreate(BaseModel):
+    name: str
+
+    @field_validator("name")
+    @classmethod
+    def name_not_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("name no puede estar vacío")
+        return v.strip()
+
+
+class CollectionUpdate(BaseModel):
+    name: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def name_not_empty(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        if not v.strip():
+            raise ValueError("name no puede estar vacío")
+        return v.strip()
+
+
+class ResetRequest(BaseModel):
+    # Si se indica, solo se reinician los retos de esa colección.
+    collection_id: int | None = None
 
 
 class ChallengeUpdate(BaseModel):
@@ -197,6 +238,8 @@ class ImportGroupsRequest(BaseModel):
 class DrawRequest(BaseModel):
     mode: str = "random"
     selected_user_ids: list[int] | None = None
+    # Si se indica, el sorteo solo considera retos de esa colección.
+    collection_id: int | None = None
 
     @field_validator("mode")
     @classmethod

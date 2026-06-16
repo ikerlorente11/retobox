@@ -2,8 +2,13 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
 import { Modal } from '../components/Modal'
-import { EditIcon, PlusIcon, TrashIcon } from '../components/icons'
-import type { Challenge } from '../types'
+import {
+  CollectionIcon,
+  EditIcon,
+  PlusIcon,
+  TrashIcon,
+} from '../components/icons'
+import type { Challenge, Collection } from '../types'
 
 export function RetosPage() {
   const { challenges, addChallenge, editChallenge, removeChallenge } = useStore()
@@ -37,6 +42,8 @@ export function RetosPage() {
           Añadir
         </button>
       </header>
+
+      <CollectionSelector />
 
       {challenges.length === 0 && (
         <div className="glass mt-6 rounded-3xl p-8 text-center text-slate-400">
@@ -214,6 +221,187 @@ function ChallengeCard({
         </button>
       </div>
     </motion.li>
+  )
+}
+
+// Desplegable de colecciones: cambia la activa y permite crear/renombrar/borrar.
+function CollectionSelector() {
+  const {
+    collections,
+    activeCollectionId,
+    setActiveCollection,
+    addCollection,
+    editCollection,
+    removeCollection,
+  } = useStore()
+  const [open, setOpen] = useState(false)
+  const [form, setForm] = useState<
+    null | { mode: 'new' | 'rename'; id?: number; name: string }
+  >(null)
+  const [confirmDel, setConfirmDel] = useState<Collection | null>(null)
+  const [saving, setSaving] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  const active = collections.find((c) => c.id === activeCollectionId) ?? null
+
+  // Cerrar el menú al hacer clic fuera.
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [open])
+
+  async function submitForm(e: React.FormEvent) {
+    e.preventDefault()
+    if (!form || !form.name.trim()) return
+    setSaving(true)
+    try {
+      if (form.mode === 'new') await addCollection({ name: form.name.trim() })
+      else if (form.id != null)
+        await editCollection(form.id, { name: form.name.trim() })
+      setForm(null)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="glass flex w-full items-center justify-between gap-2 rounded-2xl px-4 py-2.5"
+        aria-expanded={open}
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <CollectionIcon className="h-5 w-5 shrink-0 text-neon-purple" />
+          <span className="min-w-0">
+            <span className="block text-[10px] uppercase tracking-widest text-slate-500">
+              Colección
+            </span>
+            <span className="block truncate font-semibold">
+              {active?.name ?? '—'}
+            </span>
+          </span>
+        </span>
+        <motion.span animate={{ rotate: open ? 180 : 0 }} aria-hidden>
+          <ChevronDown className="h-4 w-4 text-slate-400" />
+        </motion.span>
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            className="glass-strong absolute z-30 mt-2 w-full rounded-2xl p-2 shadow-glow"
+          >
+            <ul className="flex max-h-64 flex-col gap-1 overflow-y-auto">
+              {collections.map((c) => (
+                <li key={c.id} className="flex items-center gap-1">
+                  <button
+                    onClick={() => {
+                      void setActiveCollection(c.id)
+                      setOpen(false)
+                    }}
+                    className={`min-w-0 flex-1 truncate rounded-xl px-3 py-2 text-left text-sm font-medium ${
+                      c.id === activeCollectionId
+                        ? 'bg-neon-gradient text-white'
+                        : 'text-slate-200 hover:bg-white/10'
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                  <button
+                    onClick={() => setForm({ mode: 'rename', id: c.id, name: c.name })}
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-300 hover:bg-white/10"
+                    aria-label={`Renombrar ${c.name}`}
+                  >
+                    <EditIcon className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setConfirmDel(c)}
+                    disabled={collections.length <= 1}
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-rose-200 hover:bg-rose-500/20 disabled:opacity-30"
+                    aria-label={`Borrar ${c.name}`}
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <button
+              onClick={() => setForm({ mode: 'new', name: '' })}
+              className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold text-neon-purple hover:bg-white/10"
+            >
+              <PlusIcon className="h-4 w-4" />
+              Nueva colección
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Crear / renombrar colección */}
+      <Modal
+        open={!!form}
+        onClose={() => setForm(null)}
+        title={form?.mode === 'rename' ? 'Renombrar colección' : 'Nueva colección'}
+      >
+        <form onSubmit={submitForm} className="flex flex-col gap-4">
+          <input
+            className="input"
+            value={form?.name ?? ''}
+            onChange={(e) =>
+              setForm((f) => (f ? { ...f, name: e.target.value } : f))
+            }
+            placeholder="Ej: Fiesta, Tranqui, Picante…"
+            autoFocus
+          />
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setForm(null)}
+              className="btn-ghost flex-1"
+            >
+              Cancelar
+            </button>
+            <button type="submit" disabled={saving} className="btn-primary flex-1">
+              {saving ? 'Guardando…' : form?.mode === 'rename' ? 'Guardar' : 'Crear'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Confirmar borrado de colección */}
+      <Modal
+        open={!!confirmDel}
+        onClose={() => setConfirmDel(null)}
+        title="Borrar colección"
+      >
+        <p className="text-sm text-slate-300">
+          ¿Seguro que quieres borrar{' '}
+          <span className="font-bold">{confirmDel?.name}</span>? Se borrarán
+          también <span className="font-bold">todos sus retos</span>.
+        </p>
+        <div className="mt-5 flex gap-3">
+          <button onClick={() => setConfirmDel(null)} className="btn-ghost flex-1">
+            Cancelar
+          </button>
+          <button
+            onClick={async () => {
+              if (confirmDel) await removeCollection(confirmDel.id)
+              setConfirmDel(null)
+            }}
+            className="btn-danger flex-1"
+          >
+            Borrar
+          </button>
+        </div>
+      </Modal>
+    </div>
   )
 }
 

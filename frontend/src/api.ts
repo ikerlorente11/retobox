@@ -3,6 +3,8 @@ import type {
   Challenge,
   ChallengeInput,
   ChallengeUpdate,
+  Collection,
+  CollectionInput,
   DrawRequest,
   DrawResult,
   ImportResult,
@@ -66,8 +68,28 @@ async function request<T>(
 }
 
 export const api = {
+  // Collections
+  getCollections: () => request<Collection[]>('/collections'),
+  createCollection: (body: CollectionInput) =>
+    request<Collection>('/collections', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  updateCollection: (id: number, body: CollectionInput) =>
+    request<Collection>(`/collections/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+  deleteCollection: (id: number) =>
+    request<void>(`/collections/${id}`, { method: 'DELETE' }),
+
   // Challenges
-  getChallenges: () => request<Challenge[]>('/challenges'),
+  getChallenges: (collectionId?: number) =>
+    request<Challenge[]>(
+      collectionId != null
+        ? `/challenges?collection_id=${collectionId}`
+        : '/challenges',
+    ),
   createChallenge: (body: ChallengeInput) =>
     request<Challenge>('/challenges', {
       method: 'POST',
@@ -80,10 +102,10 @@ export const api = {
     }),
   deleteChallenge: (id: number) =>
     request<void>(`/challenges/${id}`, { method: 'DELETE' }),
-  importChallenges: (challenges: ChallengeInput[]) =>
+  importChallenges: (challenges: ChallengeInput[], collectionId?: number) =>
     request<ImportResult>('/challenges/import', {
       method: 'POST',
-      body: JSON.stringify({ challenges }),
+      body: JSON.stringify({ challenges, collection_id: collectionId }),
     }),
 
   // Users
@@ -122,6 +144,13 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
-  reset: () => request<{ reset: number }>('/reset', { method: 'POST' }),
-  getStats: () => request<Stats>('/stats'),
+  reset: (collectionId?: number) =>
+    request<{ reset: number }>(
+      collectionId != null ? `/reset?collection_id=${collectionId}` : '/reset',
+      { method: 'POST' },
+    ),
+  getStats: (collectionId?: number) =>
+    request<Stats>(
+      collectionId != null ? `/stats?collection_id=${collectionId}` : '/stats',
+    ),
 }

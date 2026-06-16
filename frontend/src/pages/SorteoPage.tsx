@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { useStore } from '../store'
 import { Avatar } from '../components/Avatar'
 import { Confetti } from '../components/Confetti'
+import { CollectionIcon } from '../components/icons'
 import { SlotMachine } from '../components/reveal/SlotMachine'
 import { Dice3D } from '../components/reveal/Dice3D'
 import type { Tab } from '../components/TabBar'
@@ -29,10 +30,18 @@ export function SorteoPage({ goTo }: Props) {
     stats,
     resetSession,
     drawId,
+    collections,
+    activeCollectionId,
   } = useStore()
+
+  const activeCollection =
+    collections.find((c) => c.id === activeCollectionId) ?? null
 
   const [showConfetti, setShowConfetti] = useState(false)
   const [resetting, setResetting] = useState(false)
+  // true cuando la tragaperras/dado ha terminado de revelar el reto: entonces se
+  // muestra el detalle debajo y el popup crece.
+  const [revealed, setRevealed] = useState(false)
 
   const decoyTitles = useMemo(
     () => challenges.map((c) => c.title).slice(0, 30),
@@ -70,6 +79,16 @@ export function SorteoPage({ goTo }: Props) {
           Retos al azar para tus fiestas
         </p>
       </div>
+
+      {/* Colección activa (de la que se sortea) */}
+      {activeCollection && (
+        <div className="flex items-center gap-1.5 text-sm">
+          <CollectionIcon className="h-4 w-4 text-neon-purple" />
+          <span className="font-semibold text-slate-200">
+            {activeCollection.name}
+          </span>
+        </div>
+      )}
 
       {/* Contador de retos restantes */}
       <div className="glass flex items-center gap-3 rounded-full px-5 py-2">
@@ -133,6 +152,7 @@ export function SorteoPage({ goTo }: Props) {
       <motion.button
         onClick={() => {
           setShowConfetti(false)
+          setRevealed(false)
           void doDraw()
         }}
         disabled={drawing || isOutOfCards}
@@ -218,102 +238,119 @@ export function SorteoPage({ goTo }: Props) {
             exit={{ opacity: 0 }}
           >
             {showConfetti && <Confetti />}
+            {/* El popup se ajusta al contenido (w-auto) y, al revelarse el reto,
+                crece de forma animada (layout) para mostrar el detalle debajo. */}
             <motion.div
               key={drawId}
-              className="glass-strong relative w-full max-w-md rounded-4xl p-6 md:max-w-lg"
+              layout
+              className="glass-strong relative flex w-auto min-w-[17rem] max-w-[calc(100vw-2rem)] flex-col items-center rounded-4xl p-6"
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               transition={{ type: 'spring', stiffness: 280, damping: 26 }}
             >
-              {revealStyle === 'slot' ? (
-                <SlotMachine
-                  challenge={result.challenge}
-                  assignedUsers={result.assigned_users}
-                  decoyTitles={decoyTitles}
-                  soundEnabled={soundEnabled}
-                  onSettled={() => setShowConfetti(true)}
-                />
-              ) : (
-                <Dice3D
-                  challenge={result.challenge}
-                  assignedUsers={result.assigned_users}
-                  decoyTitles={decoyTitles}
-                  soundEnabled={soundEnabled}
-                  onSettled={() => setShowConfetti(true)}
-                />
-              )}
+              {/* La tragaperras / el dado se centran. No mostramos aquí los
+                  usuarios (assignedUsers=[]); van en el detalle de abajo. */}
+              <div>
+                {revealStyle === 'slot' ? (
+                  <SlotMachine
+                    challenge={result.challenge}
+                    assignedUsers={[]}
+                    decoyTitles={decoyTitles}
+                    soundEnabled={soundEnabled}
+                    onSettled={() => {
+                      setShowConfetti(true)
+                      setRevealed(true)
+                    }}
+                  />
+                ) : (
+                  <Dice3D
+                    challenge={result.challenge}
+                    assignedUsers={[]}
+                    decoyTitles={decoyTitles}
+                    soundEnabled={soundEnabled}
+                    onSettled={() => {
+                      setShowConfetti(true)
+                      setRevealed(true)
+                    }}
+                  />
+                )}
+              </div>
 
-              {/* Detalle del reto */}
-              <motion.div
-                className="mt-6 text-center"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 2.6 }}
-              >
-                <h3 className="text-xl font-extrabold gradient-text">
-                  {result.challenge.title}
-                </h3>
-                {result.challenge.description && (
-                  <p className="mt-2 text-sm text-slate-300">
-                    {result.challenge.description}
+              {/* Detalle del reto: aparece debajo SOLO cuando ya se ha revelado. */}
+              {revealed && (
+                <motion.div
+                  layout
+                  className="mt-3 w-full text-center"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <h3 className="text-xl font-extrabold gradient-text">
+                    {result.challenge.title}
+                  </h3>
+                  {result.challenge.description && (
+                    <p className="mt-2 text-sm text-slate-300">
+                      {result.challenge.description}
+                    </p>
+                  )}
+                  {result.assigned_users.length > 0 && (
+                    <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                      {result.assigned_users.map((u) => (
+                        <span
+                          key={u.id}
+                          className="flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-1 text-xs"
+                        >
+                          <Avatar user={u} size="sm" />
+                          {u.name}
+                        </span>
+                      ))}
+                      {result.anonymous_count > 0 && (
+                        <span className="flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-1 text-xs text-slate-400">
+                          🎭 +{result.anonymous_count} anónimo
+                          {result.anonymous_count > 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  <p className="mt-3 text-xs text-slate-500">
+                    Quedan {result.remaining} retos en esta sesión
                   </p>
-                )}
-                {result.assigned_users.length > 0 && (
-                  <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-                    {result.assigned_users.map((u) => (
-                      <span
-                        key={u.id}
-                        className="flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-1 text-xs"
-                      >
-                        <Avatar user={u} size="sm" />
-                        {u.name}
-                      </span>
-                    ))}
-                    {result.anonymous_count > 0 && (
-                      <span className="flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-1 text-xs text-slate-400">
-                        🎭 +{result.anonymous_count} anónimo
-                        {result.anonymous_count > 1 ? 's' : ''}
-                      </span>
-                    )}
-                  </div>
-                )}
-                <p className="mt-3 text-xs text-slate-500">
-                  Quedan {result.remaining} retos en esta sesión
-                </p>
 
-                <div className="mt-5 flex gap-3">
-                  <button
-                    onClick={() => {
-                      setShowConfetti(false)
-                      clearResult()
-                    }}
-                    className="btn-ghost flex-1"
-                  >
-                    Cerrar
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowConfetti(false)
-                      clearResult()
-                      void doDraw()
-                    }}
-                    className="btn-primary flex-1"
-                  >
-                    Otra vez 🎲
-                  </button>
-                </div>
-                {result.assigned_users.length === 0 && !noUsers && (
-                  <button
-                    onClick={() => {
-                      clearResult()
-                      goTo('usuarios')
-                    }}
-                    className="mt-3 text-xs text-slate-400 underline"
-                  >
-                    Gestionar usuarios
-                  </button>
-                )}
-              </motion.div>
+                  <div className="mt-5 flex gap-3">
+                    <button
+                      onClick={() => {
+                        setShowConfetti(false)
+                        clearResult()
+                      }}
+                      className="btn-ghost flex-1"
+                    >
+                      Cerrar
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowConfetti(false)
+                        setRevealed(false)
+                        clearResult()
+                        void doDraw()
+                      }}
+                      className="btn-primary flex-1"
+                    >
+                      Otra vez 🎲
+                    </button>
+                  </div>
+                  {result.assigned_users.length === 0 && !noUsers && (
+                    <button
+                      onClick={() => {
+                        clearResult()
+                        goTo('usuarios')
+                      }}
+                      className="mt-3 text-xs text-slate-400 underline"
+                    >
+                      Gestionar usuarios
+                    </button>
+                  )}
+                </motion.div>
+              )}
             </motion.div>
           </motion.div>
         )}

@@ -9,6 +9,18 @@ export interface Challenge {
   repeatable: boolean // puede salir más de una vez en la misma sesión
   is_used: boolean
   created_at: string
+  collection_id: number // colección a la que pertenece
+}
+
+// Colección que agrupa retos (para distintas situaciones)
+export interface Collection {
+  id: number
+  name: string
+  created_at: string
+}
+
+export interface CollectionInput {
+  name: string
 }
 
 export interface User {
@@ -44,6 +56,7 @@ export type DrawMode = 'random' | 'selected'
 export interface DrawRequest {
   mode: DrawMode
   selected_user_ids?: number[]
+  collection_id?: number
 }
 
 // Payloads de creación/edición
@@ -53,6 +66,7 @@ export interface ChallengeInput {
   required_users: number
   involved_users?: number | null
   repeatable?: boolean
+  collection_id?: number
 }
 
 export interface ChallengeUpdate {

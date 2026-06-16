@@ -9,13 +9,15 @@ import os
 import random
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import (
     _lock,
     challenge_row_to_dict,
+    collection_row_to_dict,
     get_connection,
+    get_default_collection_id,
     init_db,
     user_row_to_dict,
     word_group_row_to_dict,
@@ -24,6 +26,9 @@ from app.models import (
     Challenge,
     ChallengeCreate,
     ChallengeUpdate,
+    Collection,
+    CollectionCreate,
+    CollectionUpdate,
     DrawRequest,
     DrawResult,
     Health,
@@ -94,16 +99,101 @@ def health() -> Health:
 
 
 # ---------------------------------------------------------------------------
+# Collections — agrupan retos (cada reto pertenece a una colección)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/collections", response_model=list[Collection])
+def list_collections() -> list[Collection]:
+    conn = get_connection()
+    with _lock:
+        rows = conn.execute(
+            "SELECT * FROM collections ORDER BY id ASC"
+        ).fetchall()
+    return [Collection(**collection_row_to_dict(r)) for r in rows]
+
+
+@app.post("/api/collections", response_model=Collection, status_code=201)
+def create_collection(payload: CollectionCreate) -> Collection:
+    conn = get_connection()
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc).isoformat()
+    with _lock:
+        cur = conn.execute(
+            "INSERT INTO collections (name, created_at) VALUES (?, ?)",
+            (payload.name, now),
+        )
+        conn.commit()
+        row = conn.execute(
+            "SELECT * FROM collections WHERE id = ?", (cur.lastrowid,)
+        ).fetchone()
+    return Collection(**collection_row_to_dict(row))
+
+
+@app.put("/api/collections/{collection_id}", response_model=Collection)
+def update_collection(collection_id: int, payload: CollectionUpdate) -> Collection:
+    conn = get_connection()
+    with _lock:
+        row = conn.execute(
+            "SELECT * FROM collections WHERE id = ?", (collection_id,)
+        ).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Colección no encontrada.")
+        if payload.name is not None:
+            conn.execute(
+                "UPDATE collections SET name = ? WHERE id = ?",
+                (payload.name, collection_id),
+            )
+            conn.commit()
+            row = conn.execute(
+                "SELECT * FROM collections WHERE id = ?", (collection_id,)
+            ).fetchone()
+    return Collection(**collection_row_to_dict(row))
+
+
+@app.delete("/api/collections/{collection_id}", status_code=204)
+def delete_collection(collection_id: int) -> Response:
+    conn = get_connection()
+    with _lock:
+        row = conn.execute(
+            "SELECT 1 FROM collections WHERE id = ?", (collection_id,)
+        ).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Colección no encontrada.")
+        count = conn.execute(
+            "SELECT COUNT(*) AS c FROM collections"
+        ).fetchone()["c"]
+        if count <= 1:
+            raise HTTPException(
+                status_code=409,
+                detail="No puedes borrar la única colección.",
+            )
+        # Borra la colección y los retos que contiene.
+        conn.execute(
+            "DELETE FROM challenges WHERE collection_id = ?", (collection_id,)
+        )
+        conn.execute("DELETE FROM collections WHERE id = ?", (collection_id,))
+        conn.commit()
+    return Response(status_code=204)
+
+
+# ---------------------------------------------------------------------------
 # Challenges
 # ---------------------------------------------------------------------------
 
 @app.get("/api/challenges", response_model=list[Challenge])
-def list_challenges() -> list[Challenge]:
+def list_challenges(collection_id: int | None = Query(default=None)) -> list[Challenge]:
     conn = get_connection()
     with _lock:
-        rows = conn.execute(
-            "SELECT * FROM challenges ORDER BY id ASC"
-        ).fetchall()
+        if collection_id is not None:
+            rows = conn.execute(
+                "SELECT * FROM challenges WHERE collection_id = ? ORDER BY id ASC",
+                (collection_id,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM challenges ORDER BY id ASC"
+            ).fetchall()
     return [Challenge(**challenge_row_to_dict(r)) for r in rows]
 
 
@@ -114,10 +204,20 @@ def create_challenge(payload: ChallengeCreate) -> Challenge:
 
     now = datetime.now(timezone.utc).isoformat()
     with _lock:
+        collection_id = payload.collection_id
+        if collection_id is None:
+            collection_id = get_default_collection_id()
+        elif (
+            conn.execute(
+                "SELECT 1 FROM collections WHERE id = ?", (collection_id,)
+            ).fetchone()
+            is None
+        ):
+            raise HTTPException(status_code=404, detail="Colección no encontrada.")
         cur = conn.execute(
             "INSERT INTO challenges "
-            "(title, description, required_users, involved_users, repeatable, is_used, created_at) "
-            "VALUES (?, ?, ?, ?, ?, 0, ?)",
+            "(title, description, required_users, involved_users, repeatable, is_used, created_at, collection_id) "
+            "VALUES (?, ?, ?, ?, ?, 0, ?, ?)",
             (
                 payload.title,
                 payload.description,
@@ -125,6 +225,7 @@ def create_challenge(payload: ChallengeCreate) -> Challenge:
                 payload.involved_users,
                 int(payload.repeatable),
                 now,
+                collection_id,
             ),
         )
         conn.commit()
@@ -136,11 +237,11 @@ def create_challenge(payload: ChallengeCreate) -> Challenge:
 
 @app.post("/api/challenges/import", response_model=ImportResult)
 def import_challenges(payload: ImportRequest) -> ImportResult:
-    """Importa retos desde un fichero exportado, evitando duplicados.
+    """Importa retos a una colección, evitando duplicados.
 
     Un reto se considera duplicado si su título (normalizado: sin espacios al
-    borde y sin distinguir mayúsculas) ya existe en la BD; en ese caso se omite.
-    También se descartan duplicados dentro del propio fichero.
+    borde y sin distinguir mayúsculas) ya existe EN ESA COLECCIÓN; en ese caso se
+    omite. También se descartan duplicados dentro del propio fichero.
     """
     conn = get_connection()
     from datetime import datetime, timezone
@@ -149,10 +250,24 @@ def import_challenges(payload: ImportRequest) -> ImportResult:
     imported = 0
     skipped = 0
     with _lock:
-        # Conjunto de títulos ya presentes (normalizados) para descartar duplicados.
+        collection_id = payload.collection_id
+        if collection_id is None:
+            collection_id = get_default_collection_id()
+        elif (
+            conn.execute(
+                "SELECT 1 FROM collections WHERE id = ?", (collection_id,)
+            ).fetchone()
+            is None
+        ):
+            raise HTTPException(status_code=404, detail="Colección no encontrada.")
+
+        # Títulos ya presentes en esa colección (normalizados) para descartar dups.
         seen = {
             r["title"].strip().lower()
-            for r in conn.execute("SELECT title FROM challenges").fetchall()
+            for r in conn.execute(
+                "SELECT title FROM challenges WHERE collection_id = ?",
+                (collection_id,),
+            ).fetchall()
         }
         for ch in payload.challenges:
             key = ch.title.strip().lower()
@@ -161,8 +276,8 @@ def import_challenges(payload: ImportRequest) -> ImportResult:
                 continue
             conn.execute(
                 "INSERT INTO challenges "
-                "(title, description, required_users, involved_users, repeatable, is_used, created_at) "
-                "VALUES (?, ?, ?, ?, ?, 0, ?)",
+                "(title, description, required_users, involved_users, repeatable, is_used, created_at, collection_id) "
+                "VALUES (?, ?, ?, ?, ?, 0, ?, ?)",
                 (
                     ch.title,
                     ch.description,
@@ -170,6 +285,7 @@ def import_challenges(payload: ImportRequest) -> ImportResult:
                     ch.involved_users,
                     int(ch.repeatable),
                     now,
+                    collection_id,
                 ),
             )
             seen.add(key)
@@ -452,18 +568,27 @@ def draw(payload: DrawRequest) -> DrawResult:
         # Una carta es elegible si no se ha usado o es repetible (puede salir
         # varias veces en la sesión). El umbral de personas requeridas es el
         # nº de involucradas si está definido, si no el nº que la realizan.
+        # Si se indica collection_id, solo se consideran retos de esa colección.
+        coll_clause = ""
+        coll_params: list = []
+        if payload.collection_id is not None:
+            coll_clause = " AND collection_id = ?"
+            coll_params = [payload.collection_id]
+
         if total_users == 0:
             # Case 1: no hay usuarios -> se ignora el requisito de personas.
             eligible_rows = conn.execute(
                 "SELECT * FROM challenges WHERE (is_used = 0 OR repeatable = 1)"
+                + coll_clause,
+                coll_params,
             ).fetchall()
         else:
             # Case 2: además COALESCE(involved_users, required_users) <= len(pool).
             eligible_rows = conn.execute(
                 "SELECT * FROM challenges "
                 "WHERE (is_used = 0 OR repeatable = 1) "
-                "AND COALESCE(involved_users, required_users) <= ?",
-                (len(pool),),
+                "AND COALESCE(involved_users, required_users) <= ?" + coll_clause,
+                [len(pool), *coll_params],
             ).fetchall()
 
         if not eligible_rows:
@@ -513,26 +638,44 @@ def draw(payload: DrawRequest) -> DrawResult:
 # ---------------------------------------------------------------------------
 
 @app.post("/api/reset", response_model=ResetResult)
-def reset() -> ResetResult:
+def reset(collection_id: int | None = Query(default=None)) -> ResetResult:
     conn = get_connection()
     with _lock:
-        cur = conn.execute(
-            "UPDATE challenges SET is_used = 0 WHERE is_used = 1"
-        )
+        if collection_id is not None:
+            cur = conn.execute(
+                "UPDATE challenges SET is_used = 0 "
+                "WHERE is_used = 1 AND collection_id = ?",
+                (collection_id,),
+            )
+        else:
+            cur = conn.execute(
+                "UPDATE challenges SET is_used = 0 WHERE is_used = 1"
+            )
         conn.commit()
         count = cur.rowcount
     return ResetResult(reset=count)
 
 
 @app.get("/api/stats", response_model=Stats)
-def stats() -> Stats:
+def stats(collection_id: int | None = Query(default=None)) -> Stats:
     conn = get_connection()
     with _lock:
-        total = conn.execute(
-            "SELECT COUNT(*) AS c FROM challenges"
-        ).fetchone()["c"]
-        used = conn.execute(
-            "SELECT COUNT(*) AS c FROM challenges WHERE is_used = 1"
-        ).fetchone()["c"]
+        if collection_id is not None:
+            total = conn.execute(
+                "SELECT COUNT(*) AS c FROM challenges WHERE collection_id = ?",
+                (collection_id,),
+            ).fetchone()["c"]
+            used = conn.execute(
+                "SELECT COUNT(*) AS c FROM challenges "
+                "WHERE is_used = 1 AND collection_id = ?",
+                (collection_id,),
+            ).fetchone()["c"]
+        else:
+            total = conn.execute(
+                "SELECT COUNT(*) AS c FROM challenges"
+            ).fetchone()["c"]
+            used = conn.execute(
+                "SELECT COUNT(*) AS c FROM challenges WHERE is_used = 1"
+            ).fetchone()["c"]
         users = conn.execute("SELECT COUNT(*) AS c FROM users").fetchone()["c"]
     return Stats(total=total, used=used, available=total - used, users=users)

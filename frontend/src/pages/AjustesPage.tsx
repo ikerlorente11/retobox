@@ -126,7 +126,7 @@ export function AjustesPage() {
       {/* Exportar / importar Retos */}
       <ExportImportCard
         title="Retos: exportar e importar"
-        hint="Descarga tus retos en un fichero para guardarlos o compartirlos. Al importar, los retos que ya existan no se duplican."
+        hint="Exporta o importa los retos de la colección activa. Al importar, los retos que ya existan en esa colección no se duplican."
         exportLabel="Exportar retos"
         noun="retos"
         canExport={challenges.length > 0}

@@ -30,6 +30,7 @@ def _clean_db():
         conn.execute("DELETE FROM challenges")
         conn.execute("DELETE FROM users")
         conn.execute("DELETE FROM word_groups")
+        conn.execute("DELETE FROM collections")
         try:
             conn.execute("DELETE FROM sqlite_sequence")
         except Exception:
@@ -52,6 +53,7 @@ def make_challenge(
     required_users=1,
     involved_users=None,
     repeatable=False,
+    collection_id=None,
 ):
     body = {
         "title": title,
@@ -61,7 +63,15 @@ def make_challenge(
     }
     if involved_users is not None:
         body["involved_users"] = involved_users
+    if collection_id is not None:
+        body["collection_id"] = collection_id
     r = client.post("/api/challenges", json=body)
+    assert r.status_code == 201, r.text
+    return r.json()
+
+
+def make_collection(client, name="Colección"):
+    r = client.post("/api/collections", json={"name": name})
     assert r.status_code == 201, r.text
     return r.json()
 

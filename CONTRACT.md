@@ -22,7 +22,17 @@ involved_users: int|null  # opcional, nº TOTAL de personas involucradas (realiz
 repeatable: bool       # default false; si true la carta puede salir varias veces en la sesión
 is_used: bool          # default false; true cuando ya ha salido en la sesión (las repetibles nunca se marcan)
 created_at: str        # ISO 8601
+collection_id: int     # colección a la que pertenece
 ```
+### Collection (colección de retos)
+```
+id: int
+name: str              # obligatorio
+created_at: str        # ISO 8601
+```
+Cada reto pertenece a una colección. Siempre existe al menos una ("General");
+los retos de BD previas se migran a ella. La colección activa (elegida en el
+frontend) filtra la lista de Retos, el sorteo, las stats y el reset.
 ### User
 ```
 id: int
@@ -44,8 +54,12 @@ backend solo persiste los grupos).
 ## API REST (todo bajo prefijo `/api`)
 Todas las respuestas en JSON. CORS abierto (`*`) en el backend.
 
-- `GET    /api/challenges`            → `Challenge[]`
-- `POST   /api/challenges`            body `{title, description?, required_users, involved_users?, repeatable?}` → `Challenge` (201)
+- `GET    /api/collections`           → `Collection[]`
+- `POST   /api/collections`           body `{name}` → `Collection` (201)
+- `PUT    /api/collections/{id}`      body `{name?}` → `Collection`
+- `DELETE /api/collections/{id}`      → 204 (borra también sus retos; 409 si es la única)
+- `GET    /api/challenges?collection_id=`  → `Challenge[]` (filtra por colección si se indica)
+- `POST   /api/challenges`            body `{title, description?, required_users, involved_users?, repeatable?, collection_id?}` → `Challenge` (201)
 - `PUT    /api/challenges/{id}`       body `{title?, description?, required_users?, involved_users?, repeatable?}` → `Challenge`
 - `DELETE /api/challenges/{id}`       → 204
 - `POST   /api/challenges/import`     body `{challenges: [{title, description?, required_users, involved_users?, repeatable?}]}` → `{imported: int, skipped: int}`
@@ -62,9 +76,9 @@ Todas las respuestas en JSON. CORS abierto (`*`) en el backend.
 - `POST   /api/word-groups/import`    body `{groups: [{name, words?}]}` → `{imported: int, skipped: int}`
                                        Importa grupos evitando duplicados (omite los de nombre ya existente,
                                        normalizado; también dentro del propio fichero).
-- `POST   /api/draw`                  body `{mode: "random"|"selected", selected_user_ids?: int[]}` → `DrawResult`
-- `POST   /api/reset`                 → `{reset: int}` (nº de cartas reseteadas)
-- `GET    /api/stats`                 → `{total: int, used: int, available: int, users: int}`
+- `POST   /api/draw`                  body `{mode: "random"|"selected", selected_user_ids?: int[], collection_id?}` → `DrawResult`
+- `POST   /api/reset?collection_id=`  → `{reset: int}` (resetea solo esa colección si se indica)
+- `GET    /api/stats?collection_id=`  → `{total: int, used: int, available: int, users: int}` (por colección si se indica)
 - `GET    /api/health`                → `{status:"ok"}`
 
 ### DrawResult

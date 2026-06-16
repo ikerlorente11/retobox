@@ -12,7 +12,7 @@ interface Props {
   onSettled: () => void
 }
 
-const SIZE = 200 // px del cubo
+const SIZE = 150 // px del cubo
 const HALF = SIZE / 2
 
 // Caras: front muestra el reto al aterrizar; resto, señuelos decorativos.
@@ -53,12 +53,12 @@ export function Dice3D({
   }, [])
 
   return (
-    <div className="flex flex-col items-center gap-6">
+    <div className="flex flex-col items-center gap-2">
       <p className="text-xs uppercase tracking-widest text-slate-400">El reto</p>
 
       <div
         className="grid place-items-center"
-        style={{ perspective: 1000, height: SIZE + 40 }}
+        style={{ perspective: 1000, height: SIZE + 12 }}
       >
         <motion.div
           style={{ width: SIZE, height: SIZE, transformStyle: 'preserve-3d' }}
@@ -68,7 +68,7 @@ export function Dice3D({
             // aterriza en la cara front: 720 y 1080 son múltiplos de 360 -> orientación 0.
             rotateX: 720,
             rotateY: 1080,
-            y: [-10, -55, 0],
+            y: [-8, -40, 0],
           }}
           transition={{
             rotateX: { duration: 2.4, ease: [0.16, 0.7, 0.22, 1] },
@@ -94,7 +94,7 @@ export function Dice3D({
               }}
             >
               <span
-                className={`line-clamp-3 text-base font-extrabold leading-tight ${
+                className={`line-clamp-3 text-sm font-extrabold leading-tight ${
                   i === 0 ? 'gradient-text' : 'text-slate-200'
                 }`}
               >

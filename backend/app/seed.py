@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 
-from app.database import get_connection, _lock
+from app.database import get_connection, _lock, _get_or_create_default_collection
 
 # (title, description, required_users)
 SEED_CHALLENGES: list[tuple[str, str, int]] = [
@@ -50,10 +50,12 @@ def seed_if_empty() -> int:
             return 0
 
         now = datetime.now(timezone.utc).isoformat()
+        collection_id = _get_or_create_default_collection(conn)
         conn.executemany(
-            "INSERT INTO challenges (title, description, required_users, is_used, created_at) "
-            "VALUES (?, ?, ?, 0, ?)",
-            [(title, desc, req, now) for (title, desc, req) in SEED_CHALLENGES],
+            "INSERT INTO challenges "
+            "(title, description, required_users, is_used, created_at, collection_id) "
+            "VALUES (?, ?, ?, 0, ?, ?)",
+            [(title, desc, req, now, collection_id) for (title, desc, req) in SEED_CHALLENGES],
         )
         conn.commit()
         return len(SEED_CHALLENGES)

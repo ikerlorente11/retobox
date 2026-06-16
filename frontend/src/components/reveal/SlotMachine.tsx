@@ -75,13 +75,13 @@ export function SlotMachine({
 
   return (
     <div className="flex flex-col items-center gap-5">
-      {/* Rodillo de reto */}
-      <div className="w-full">
+      {/* Rodillo de reto (ancho fijo para que el popup se ajuste a él) */}
+      <div className="w-72">
         <p className="mb-2 text-center text-xs uppercase tracking-widest text-slate-400">
           El reto
         </p>
         <div
-          className="glass-strong relative mx-auto w-full max-w-md overflow-hidden rounded-3xl shadow-glow"
+          className="glass-strong relative mx-auto w-full overflow-hidden rounded-3xl shadow-glow"
           style={{ height: ROW_H }}
         >
           {/* línea central */}

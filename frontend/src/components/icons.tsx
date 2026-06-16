@@ -49,6 +49,15 @@ export const ShuffleIcon = (p: P) => (
   </svg>
 )
 
+// Colecciones (capas apiladas).
+export const CollectionIcon = (p: P) => (
+  <svg viewBox="0 0 24 24" fill="none" strokeWidth={2} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <path d="M12 3l9 5-9 5-9-5 9-5Z" />
+    <path d="M3 12l9 5 9-5" />
+    <path d="M3 16.5l9 5 9-5" />
+  </svg>
+)
+
 export const PlusIcon = (p: P) => (
   <svg viewBox="0 0 24 24" fill="none" strokeWidth={2.4} stroke="currentColor" strokeLinecap="round" {...p}>
     <path d="M12 5v14M5 12h14" />
