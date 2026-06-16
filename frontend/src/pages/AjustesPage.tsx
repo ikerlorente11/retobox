@@ -100,6 +100,10 @@ export function AjustesPage() {
     <div className="flex flex-col gap-5 pb-4">
       <h1 className="text-2xl font-extrabold">Ajustes</h1>
 
+      {/* En tablet (md+) las tarjetas se reparten en 2 columnas tipo masonry
+          (CSS multi-columna) para que se empaqueten sin huecos ni tarjetas
+          colgando. break-inside-avoid impide que una tarjeta se parta. */}
+      <div className="flex flex-col gap-5 md:block md:columns-2 md:gap-5 md:[&>section]:mb-5 md:[&>section]:break-inside-avoid">
       {/* Tema */}
       <section className="glass rounded-3xl p-5">
         <h2 className="mb-1 font-bold">Tema</h2>
@@ -237,6 +241,8 @@ export function AjustesPage() {
           </motion.p>
         )}
       </section>
+
+      </div>
 
       <p className="text-center text-xs text-slate-600">RetoBox · v1.0</p>
 

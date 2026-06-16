@@ -16,7 +16,7 @@ export default function App() {
   }, [bootstrap])
 
   return (
-    <div className="mx-auto flex min-h-full max-w-md flex-col px-4 pt-6 pb-28">
+    <div className="mx-auto flex min-h-full max-w-md flex-col px-4 pt-6 pb-28 md:max-w-3xl md:px-8 md:pt-10 lg:max-w-5xl">
       {loading ? (
         <LoadingScreen />
       ) : loadError ? (
@@ -27,6 +27,7 @@ export default function App() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.22 }}
+          className="flex flex-1 flex-col"
         >
           {tab === 'sorteo' && <SorteoPage goTo={setTab} />}
           {tab === 'retos' && <RetosPage />}

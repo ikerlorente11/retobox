@@ -55,11 +55,11 @@ export function SorteoPage({ goTo }: Props) {
   }
 
   return (
-    <div className="flex flex-col items-center gap-6 pb-4">
+    <div className="flex flex-col items-center gap-6 pb-4 md:flex-1">
       {/* Cabecera */}
       <div className="text-center">
         <motion.h1
-          className="text-4xl font-extrabold tracking-tight"
+          className="text-4xl font-extrabold tracking-tight md:text-5xl"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
         >
@@ -79,7 +79,7 @@ export function SorteoPage({ goTo }: Props) {
 
       {/* Selector de modo (oculto si no hay usuarios: modo aleatorio simple) */}
       {!noUsers && (
-        <div className="glass flex w-full max-w-md gap-1 rounded-2xl p-1">
+        <div className="glass flex w-full max-w-md gap-1 rounded-2xl p-1 md:max-w-lg">
           <ModeButton
             active={mode === 'random'}
             onClick={() => setMode('random')}
@@ -97,7 +97,7 @@ export function SorteoPage({ goTo }: Props) {
       <AnimatePresence>
         {!noUsers && mode === 'selected' && (
           <motion.div
-            className="flex w-full max-w-md flex-wrap justify-center gap-2"
+            className="flex w-full max-w-md flex-wrap justify-center gap-2 md:max-w-lg"
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
@@ -126,6 +126,9 @@ export function SorteoPage({ goTo }: Props) {
         )}
       </AnimatePresence>
 
+      {/* Zona de acción: en tablet crece y centra el botón ¡Tirar! en el
+          espacio que queda, dejando la cabecera y controles pegados arriba. */}
+      <div className="flex w-full flex-col items-center gap-6 md:flex-1 md:justify-center">
       {/* Botón ¡Tirar! */}
       <motion.button
         onClick={() => {
@@ -135,7 +138,7 @@ export function SorteoPage({ goTo }: Props) {
         disabled={drawing || isOutOfCards}
         whileHover={{ scale: 1.04 }}
         whileTap={{ scale: 0.95 }}
-        className="relative grid h-44 w-44 place-items-center rounded-full bg-neon-gradient text-2xl font-extrabold text-white shadow-glow disabled:opacity-60"
+        className="relative grid h-44 w-44 place-items-center rounded-full bg-neon-gradient text-2xl font-extrabold text-white shadow-glow disabled:opacity-60 md:h-52 md:w-52"
       >
         <span className="absolute inset-0 animate-pulse rounded-full bg-white/10 blur-xl" />
         <span className="relative z-10 flex flex-col items-center">
@@ -185,7 +188,7 @@ export function SorteoPage({ goTo }: Props) {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
-            className="glass-strong flex w-full max-w-md flex-col items-center gap-4 rounded-3xl p-6 text-center"
+            className="glass-strong flex w-full max-w-md flex-col items-center gap-4 rounded-3xl p-6 text-center md:max-w-lg"
           >
             <span className="text-5xl">🪫</span>
             <h3 className="text-lg font-bold">No quedan retos</h3>
@@ -203,6 +206,7 @@ export function SorteoPage({ goTo }: Props) {
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
 
       {/* Overlay de revelado */}
       <AnimatePresence>
@@ -216,7 +220,7 @@ export function SorteoPage({ goTo }: Props) {
             {showConfetti && <Confetti />}
             <motion.div
               key={drawId}
-              className="glass-strong relative w-full max-w-md rounded-4xl p-6"
+              className="glass-strong relative w-full max-w-md rounded-4xl p-6 md:max-w-lg"
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               transition={{ type: 'spring', stiffness: 280, damping: 26 }}

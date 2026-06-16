@@ -18,6 +18,20 @@ body,
   height: 100%;
 }
 
+/* En tablet/escritorio subimos ligeramente la escala base. Como las medidas de
+   Tailwind son rem, el texto y los espaciados crecen de forma proporcional para
+   una lectura más cómoda en pantallas grandes (sin tocar cada componente). */
+@media (min-width: 768px) {
+  html {
+    font-size: 17.5px;
+  }
+}
+@media (min-width: 1024px) {
+  html {
+    font-size: 18.5px;
+  }
+}
+
 body {
   @apply bg-ink-900 text-slate-100 font-sans antialiased;
   margin: 0;

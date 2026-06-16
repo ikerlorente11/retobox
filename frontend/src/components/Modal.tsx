@@ -36,7 +36,7 @@ export function Modal({ open, onClose, title, children }: Props) {
             role="dialog"
             aria-modal="true"
             aria-label={title}
-            className="glass-strong relative w-full sm:max-w-md rounded-b-none sm:rounded-3xl rounded-t-3xl p-6 shadow-glow"
+            className="glass-strong relative w-full sm:max-w-md md:max-w-lg rounded-b-none sm:rounded-3xl rounded-t-3xl p-6 shadow-glow"
             initial={{ y: 40, opacity: 0, scale: 0.98 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 40, opacity: 0, scale: 0.98 }}

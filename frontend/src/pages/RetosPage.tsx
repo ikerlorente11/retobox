@@ -45,7 +45,7 @@ export function RetosPage() {
         </div>
       )}
 
-      <ul className="flex flex-col gap-3">
+      <ul className="grid grid-cols-1 items-start gap-3 md:grid-cols-2 lg:grid-cols-3">
         <AnimatePresence initial={false}>
           {challenges.map((c) => (
             <ChallengeCard
