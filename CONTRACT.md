@@ -1,7 +1,9 @@
 # RetoBox — Contrato compartido (FUENTE DE VERDAD)
 
 App de retos al azar tipo tragaperras/dado, con usuarios y reglas de cuántos
-jugadores necesita cada reto. Las cartas no se repiten entre sesiones hasta resetear.
+jugadores necesita cada reto. Las cartas no repetibles no vuelven a salir hasta resetear;
+las repetibles pueden repetir pero con **probabilidad decreciente** (anti-repetición), de modo
+que tienden a salir todas antes de repetirse.
 UI **bilingüe (castellano por defecto / inglés)**, con selector de idioma en Ajustes.
 Tema oscuro, moderno, "chulo".
 
@@ -9,14 +11,17 @@ Tema oscuro, moderno, "chulo".
 > veces: en el **backend Python** (`backend/app/`, para la web) y en el paquete TS
 > **`@retobox/shared`** (`shared/src/`, para la app móvil offline). Cualquier cambio
 > de reglas debe aplicarse en **ambos** y mantener verdes los dos suites de tests
-> (`backend/tests/` y `shared/tests/`).
+> (`backend/tests/` y `shared/tests/`). Los tests **estadísticos del aleatorio** son
+> aparte y solo se ejecutan al tocar la lógica de sorteo: `pytest -m random_sim`
+> (backend) y `npm run test:random` (shared).
 
 ## Arquitectura / servicios (docker compose)
 - `api`  → FastAPI + uvicorn, escucha en **0.0.0.0:8000** dentro del contenedor.
 - `web`  → React (Vite build) servido por **nginx** en el puerto 80 (expuesto en host **8050**).
            nginx hace proxy de `/api/` → `http://api:8000/api/`.
 - DB: **SQLite** en `/data/retobox.db`. Volumen `retobox-data` montado en `/data`.
-- Variable backend: `DATABASE_PATH` (default `/data/retobox.db`).
+- Variables backend: `DATABASE_PATH` (default `/data/retobox.db`) · `REPEAT_DECAY`
+  (default `0.1`; fuerza del anti-repetición de las cartas repetibles).
 
 ## Modelo de datos
 ### Challenge (reto)
@@ -27,7 +32,10 @@ description: str       # puede ser ""
 required_users: int    # >= 1, nº de personas que REALIZAN el reto (se les asigna usuario)
 involved_users: int|null  # opcional, nº TOTAL de personas involucradas (realizan + participan)
 repeatable: bool       # default false; si true la carta puede salir varias veces en la sesión
-is_used: bool          # default false; true cuando ya ha salido en la sesión (las repetibles nunca se marcan)
+is_used: bool          # default false; true cuando ya ha salido (las repetibles nunca se marcan)
+draw_count: int        # default 0; veces que ha salido en la sesión. Pondera el anti-repetición
+                       #   y alimenta el contador de "sin salir". El reset lo devuelve a 0.
+                       #   (interno; la API REST no lo expone en las respuestas de Challenge)
 created_at: str        # ISO 8601
 collection_id: int     # colección a la que pertenece
 ```
@@ -85,8 +93,9 @@ Todas las respuestas en JSON. CORS abierto (`*`) en el backend.
                                        Importa grupos evitando duplicados (omite los de nombre ya existente,
                                        normalizado; también dentro del propio fichero).
 - `POST   /api/draw`                  body `{mode: "random"|"selected", selected_user_ids?: int[], collection_id?}` → `DrawResult`
-- `POST   /api/reset?collection_id=`  → `{reset: int}` (resetea solo esa colección si se indica)
+- `POST   /api/reset?collection_id=`  → `{reset: int}` (pone `is_used=0` y `draw_count=0`; solo esa colección si se indica)
 - `GET    /api/stats?collection_id=`  → `{total: int, used: int, available: int, users: int}` (por colección si se indica)
+  - `used` = cartas que **ya han salido** (`draw_count > 0`, incluidas repetibles); `available` = `total - used` = cartas **sin salir**.
 - `GET    /api/health`                → `{status:"ok"}`
 
 ### DrawResult
@@ -95,7 +104,7 @@ Todas las respuestas en JSON. CORS abierto (`*`) en el backend.
   challenge: Challenge,
   assigned_users: User[],   # los que REALIZAN el reto; vacío si no hay usuarios registrados
   anonymous_count: int,     # participantes adicionales anónimos (involved_users - required_users)
-  remaining: int            # cartas elegibles que aún quedan tras esta (informativo)
+  remaining: int            # cartas que aún NO han salido (draw_count==0) tras esta tirada
 }
 ```
 
@@ -113,16 +122,23 @@ Elegibilidad de cartas (`eligible`): una carta cuenta si **no está usada O es r
 
 Acción:
 - Si `eligible` está vacío → **HTTP 409** con `{detail: "No quedan retos disponibles. Reinicia la sesión."}`
-- Si no: elegir un reto aleatorio de `eligible`. Asignar `required_users` usuarios elegidos
-  al azar de `pool` (sin repetir) — solo los que REALIZAN el reto. El resto de involucrados
-  (`involved_users - required_users`, si procede) se devuelve como `anonymous_count` (anónimos).
-  Marcar el reto como `is_used=true` **salvo que sea repetible** (las repetibles no se marcan y
-  pueden volver a salir). Devolver `DrawResult`.
+- Si no: elegir un reto de `eligible` con **sorteo ponderado (anti-repetición)**. El peso de
+  cada carta es `REPEAT_DECAY ** (draw_count - min_draw_count_del_bote)`, con `REPEAT_DECAY`
+  configurable (env `REPEAT_DECAY`, **default 0.1**; `1.0` = uniforme, `0.0` = rotación pura).
+  Restar el `draw_count` mínimo del bote mantiene los pesos relativos y evita underflow en
+  sesiones largas; si la suma de pesos fuese 0 se cae a uniforme. Así las repetibles que aún
+  no han salido se priorizan con fuerza y prácticamente no se repite ninguna hasta que han
+  salido todas (verificado por simulación: reparto casi uniforme y orden aleatorio).
+  Asignar `required_users` usuarios elegidos al azar de `pool` (sin repetir) — solo los que
+  REALIZAN el reto. El resto de involucrados (`involved_users - required_users`, si procede)
+  se devuelve como `anonymous_count` (anónimos). **Incrementar `draw_count` del reto elegido**
+  y, **salvo que sea repetible**, marcarlo `is_used=true`. Devolver `DrawResult`.
 - modo `selected` con `selected_user_ids` vacío o nulo → tratar como error 400 `{detail:"Selecciona al menos un usuario."}`
   (salvo que no haya usuarios en el sistema, entonces aplica el caso 1).
 
-`remaining` = nº de cartas que seguirían siendo elegibles con el mismo `pool` tras esta tirada
-(una carta repetible sigue contando, no se descuenta).
+`remaining` = nº de cartas que **aún no han salido** (`draw_count == 0`) en el ámbito de
+colección tras esta tirada. Es el indicador de progreso del contador: baja hasta 0 cuando han
+salido todas, pero **no bloquea el sorteo** (las repetibles siguen siendo elegibles aunque sea 0).
 
 ## Reglas de validación
 - `required_users` entero >= 1 (rechazar < 1 con 422/400).

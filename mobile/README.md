@@ -37,7 +37,8 @@ través del paquete [`@retobox/shared`](../shared) (fuente de verdad: [`CONTRACT
 
 ```bash
 npm test            # móvil: i18n (traducción, errores, paridad ES/EN)
-cd ../shared && npm test   # lógica de negocio compartida (64 tests de paridad)
+cd ../shared && npm test            # lógica de negocio compartida (64 tests de paridad)
+cd ../shared && npm run test:random # aleatorio del sorteo (solo al tocar la lógica)
 ```
 
 - **`../shared/tests`** (64) cubre TODA la lógica de negocio que el móvil usa:

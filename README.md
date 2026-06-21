@@ -1,8 +1,9 @@
 # 🎲 RetoBox
 
 App de **retos al azar** tipo tragaperras / dado, con usuarios y reglas de cuántos
-jugadores necesita cada reto. Las cartas **no se repiten entre sesiones** hasta que reinicias
-manualmente. Pensada para usar en el móvil en fiestas.
+jugadores necesita cada reto. Las cartas no repetibles **no vuelven a salir** hasta reiniciar;
+las repetibles pueden repetir pero con **probabilidad decreciente**, de modo que tienden a salir
+todas antes de repetirse. Pensada para usar en el móvil en fiestas.
 
 Disponible como **app web** (React + FastAPI) y como **app móvil Android offline**
 (Expo / React Native), que comparten la lógica de negocio vía el paquete
@@ -20,7 +21,10 @@ SQLite**, sin backend ni conexión. Ver [`mobile/README.md`](./mobile/README.md)
   - **Aleatorio total:** saca un reto elegible y asigna jugadores al azar.
   - **Usuarios seleccionados:** eliges quién juega y sale un reto compatible.
 - 🚫 Filtrado: solo salen retos realizables con los usuarios disponibles.
-- 🔁 Sin repeticiones hasta pulsar **Reiniciar sesión**.
+- 🔁 **Anti-repetición:** las no repetibles no vuelven hasta **Reiniciar sesión**; las repetibles
+  salen con probabilidad decreciente (tienden a salir todas antes de repetir). El contador muestra
+  cuántas quedan **sin salir** y, al llegar a 0, las repetibles siguen saliendo. Ajustable con la
+  variable de entorno `REPEAT_DECAY` (default `0.1`).
 - 🔀 **Combos (mezclador):** crea grupos de palabras y, al jugar, salen varias tragaperras/dados
   con una combinación al azar.
 - 📤 **Exportar / importar** retos (de la colección activa) y grupos de Combos a fichero, con dedup.
@@ -81,7 +85,7 @@ retobox/
 ├── CONTRACT.md                 # contrato compartido (modelo + API + lógica de sorteo)
 ├── backend/                    # FastAPI + SQLite (web)
 │   ├── app/                    # main.py, database.py, models.py, seed.py
-│   ├── tests/                  # suite pytest (77 tests del contrato)
+│   ├── tests/                  # suite pytest del contrato + tests del aleatorio (gateados)
 │   ├── requirements.txt
 │   ├── requirements-dev.txt    # + pytest, httpx
 │   └── Dockerfile
@@ -92,7 +96,7 @@ retobox/
 │   └── nginx.conf              # SPA + proxy /api
 ├── shared/                     # @retobox/shared: tipos + lógica de negocio en TS
 │   ├── src/                    # draw.ts, validation.ts, repository.ts, seed.ts…
-│   └── tests/                  # 26 tests de paridad con el backend
+│   └── tests/                  # paridad con el backend + tests del aleatorio (gateados)
 └── mobile/                     # Expo / React Native (Android offline, SQLite local)
     ├── app/                    # rutas expo-router (tabs)
     ├── src/                    # db/, ui/, components/, store.ts, theme.ts
@@ -110,23 +114,35 @@ retobox/
 para filtrar por la colección activa. Detalle completo en [`CONTRACT.md`](./CONTRACT.md).
 
 ## 🧪 Tests
-**Backend** (77 tests, FastAPI `TestClient`) — cubren CRUD de retos/usuarios/
-colecciones/grupos, validaciones (422), los 3 casos de elegibilidad de `/draw`,
-errores 400/404/409, no-repetición, colecciones (filtrado, dedup por colección,
-migración), import/export y stats/reset por colección:
+**Backend** (FastAPI `TestClient`) — cubren CRUD de retos/usuarios/colecciones/
+grupos, validaciones (422), los 3 casos de elegibilidad de `/draw`, errores
+400/404/409, anti-repetición y contador, colecciones (filtrado, dedup por
+colección, migración), import/export y stats/reset por colección:
 ```bash
 cd backend
 pip install -r requirements-dev.txt
-pytest tests/ -v
+pytest tests/ -v               # suite normal (los tests del aleatorio quedan fuera)
+pytest -m random_sim -v        # tests ESTADÍSTICOS del aleatorio (solo al tocar el sorteo)
 ```
-**Frontend** (21 tests con **Vitest** + jsdom) — i18n (`translate`, errores del
-backend), parsers de importar/exportar (retos y grupos), utilidades de color y
-arranque del store:
+**Shared** (`@retobox/shared`, **Vitest**) — paridad con el backend: misma lógica
+de negocio (sorteo, validaciones, colecciones, import/export) que usa la app móvil:
+```bash
+cd shared
+npm install
+npm test                       # suite normal
+npm run test:random            # tests ESTADÍSTICOS del aleatorio (solo al tocar el sorteo)
+```
+**Frontend** (**Vitest** + jsdom) — i18n (`translate`, errores del backend),
+parsers de importar/exportar (retos y grupos), utilidades de color y arranque del store:
 ```bash
 cd frontend
 npm test           # vitest run
 npm run build      # typecheck (tsc -b) + build de producción
 ```
+
+> Los tests del **aleatorio** (`random_sim` en backend, `test:random` en shared) son
+> estadísticos y no deterministas, así que están **fuera de la suite normal**: ejecútalos
+> solo cuando cambies la lógica de sorteo (`backend/app/main.py`, `shared/src/draw.ts`).
 
 ## 🩺 Arquitectura
 - nginx (servicio `web`) sirve la SPA y hace `proxy_pass` de `/api/` → `api:8000`
