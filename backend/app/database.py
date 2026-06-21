@@ -58,6 +58,7 @@ def init_db() -> None:
                 involved_users INTEGER,
                 repeatable     INTEGER NOT NULL DEFAULT 0,
                 is_used        INTEGER NOT NULL DEFAULT 0,
+                draw_count     INTEGER NOT NULL DEFAULT 0,
                 created_at     TEXT    NOT NULL,
                 collection_id  INTEGER
             );
@@ -106,6 +107,12 @@ def init_db() -> None:
         if "collection_id" not in existing:
             conn.execute(
                 "ALTER TABLE challenges ADD COLUMN collection_id INTEGER"
+            )
+        if "draw_count" not in existing:
+            # Veces que se ha sorteado la carta en la sesión. Se usa para
+            # reducir la probabilidad de que una repetible vuelva a salir.
+            conn.execute(
+                "ALTER TABLE challenges ADD COLUMN draw_count INTEGER NOT NULL DEFAULT 0"
             )
 
         # El índice sobre collection_id va aquí (tras garantizar la columna en

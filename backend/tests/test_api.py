@@ -133,13 +133,62 @@ def test_update_involved_below_required_422(client):
 
 def test_repeatable_challenge_can_be_drawn_again(client):
     make_challenge(client, title="Repe", repeatable=True)
-    # Sin usuarios -> elegible siempre; nunca se marca como usada.
+    # Sin usuarios -> elegible siempre; nunca se marca como usada (is_used).
     for _ in range(3):
         body = client.post("/api/draw", json={"mode": "random"}).json()
         assert body["challenge"]["title"] == "Repe"
         assert body["challenge"]["is_used"] is False
-        assert body["remaining"] == 1  # sigue contando como disponible
-    assert client.get("/api/stats").json()["used"] == 0
+        # Tras salir una vez ya no quedan cartas "sin salir", pero se puede
+        # seguir sacando (sigue siendo elegible por ser repetible).
+        assert body["remaining"] == 0
+    # Ha salido (draw_count>0) -> cuenta como vista en las stats.
+    stats = client.get("/api/stats").json()
+    assert stats["used"] == 1 and stats["available"] == 0
+
+
+def test_repeatable_draw_count_decay_spreads_cards(client):
+    # Con muchas repetibles, el peso decreciente debe repartir las salidas en
+    # lugar de repetir siempre las mismas (regresión del bug original).
+    import random
+
+    n = 10
+    for i in range(n):
+        make_challenge(client, title=f"Rep{i}", repeatable=True)
+
+    random.seed(20260621)  # determinista: evita test flaky
+    seen = set()
+    for _ in range(n):  # exactamente n tiradas
+        body = client.post("/api/draw", json={"mode": "random"}).json()
+        seen.add(body["challenge"]["title"])
+
+    # Con sorteo uniforme (el bug) saldrían ~6-7 distintas en 10 tiradas por
+    # colisiones; con el decaimiento deben salir casi todas.
+    assert len(seen) >= n - 1
+
+
+def test_long_repeatable_run_never_errors_and_spreads(client):
+    # Sesión larga: el sorteo ponderado no debe fallar nunca (blindaje contra
+    # underflow de pesos) y debe repartir entre todas las cartas.
+    n = 5
+    for i in range(n):
+        make_challenge(client, title=f"R{i}", repeatable=True)
+    seen = set()
+    for _ in range(300):
+        r = client.post("/api/draw", json={"mode": "random"})
+        assert r.status_code == 200, r.text
+        seen.add(r.json()["challenge"]["id"])
+    assert len(seen) == n  # han salido todas
+
+
+def test_reset_clears_repeatable_draw_count(client):
+    # Una repetible nunca se marca is_used, pero sí acumula draw_count; reset
+    # debe contarla y dejarla de nuevo "sin sacar".
+    make_challenge(client, title="Rep", repeatable=True)
+    for _ in range(3):
+        client.post("/api/draw", json={"mode": "random"})
+    r = client.post("/api/reset")
+    assert r.status_code == 200
+    assert r.json()["reset"] == 1  # la repetible cuenta porque draw_count > 0
 
 
 def test_draw_eligibility_uses_involved_users(client):
@@ -761,17 +810,21 @@ def test_draw_random_ignores_selected_user_ids(client):
 def test_remaining_with_mixed_repeatable(client):
     make_challenge(client, title="Rep", repeatable=True)
     make_challenge(client, title="Normal")
-    # Tira hasta que salga la normal: en ese momento remaining=1 (queda la repetible).
+    # remaining = nº de cartas que aún no han salido (draw_count==0). Empieza en
+    # 2 y baja a 0 según se van viendo; cada distinta vista descuenta una.
+    seen_titles: set[str] = set()
     for _ in range(30):
         body = client.post("/api/draw", json={"mode": "random"}).json()
-        if body["challenge"]["title"] == "Normal":
-            assert body["remaining"] == 1
+        seen_titles.add(body["challenge"]["title"])
+        assert body["remaining"] == 2 - len(seen_titles)
+        if len(seen_titles) == 2:
             break
     else:
-        raise AssertionError("La normal no salió en 30 tiradas")
-    # La normal queda usada -> solo la repetible es elegible.
-    body2 = client.post("/api/draw", json={"mode": "random"}).json()
-    assert body2["challenge"]["title"] == "Rep"
+        raise AssertionError("No salieron las dos en 30 tiradas")
+    # Aunque remaining sea 0, se sigue pudiendo sacar la repetible.
+    after = client.post("/api/draw", json={"mode": "random"})
+    assert after.status_code == 200
+    assert after.json()["remaining"] == 0
 
 
 def test_word_group_handles_corrupt_words_json(client):

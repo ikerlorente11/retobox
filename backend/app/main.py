@@ -67,6 +67,16 @@ COLOR_PALETTE = [
 # En producción -> desactivado (arranca vacío; solo lo que metáis después).
 SEED_DATA = os.environ.get("SEED_DATA", "").lower() in ("1", "true", "yes", "on")
 
+# Factor de decaimiento de probabilidad para cartas repetibles. El peso de una
+# carta en el sorteo es REPEAT_DECAY ** (veces ya sacada). Con 0.1, una carta
+# vista una vez es 10x menos probable que una sin ver, vista dos veces 100x
+# menos, etc. Así las repetibles que aún no han salido se priorizan con fuerza y
+# prácticamente no se repite ninguna hasta que van saliendo las demás (verificado
+# por simulación: reparto casi uniforme y orden aleatorio). Configurable por env
+# var: 1.0 = uniforme (sin anti-repetición); 0.0 = rotación pura (no repite hasta
+# agotar todas). Valores bajos (0.05–0.1) = muy anti-repetición pero aleatorio.
+REPEAT_DECAY = float(os.environ.get("REPEAT_DECAY", "0.1"))
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -597,8 +607,19 @@ def draw(payload: DrawRequest) -> DrawResult:
                 detail="No quedan retos disponibles. Reinicia la sesión.",
             )
 
-        # ----- Pick a random challenge -----
-        chosen_row = random.choice(eligible_rows)
+        # ----- Pick a random challenge (ponderado por veces ya sorteada) -----
+        # Las cartas que ya han salido pesan menos, de forma que las repetibles
+        # sin sacar (o menos sacadas) tienen mucha más probabilidad de salir.
+        # Restamos el draw_count mínimo del bote: la carta menos sacada siempre
+        # pesa 1.0 y el resto decae. Los pesos relativos son idénticos, pero así
+        # los exponentes no crecen sin límite en sesiones muy largas (evita el
+        # underflow a 0.0 que haría fallar a random.choices por "suma de pesos =
+        # 0"). Con REPEAT_DECAY=0 esto da rotación pura sin romperse.
+        min_drawn = min(row["draw_count"] for row in eligible_rows)
+        weights = [
+            REPEAT_DECAY ** (row["draw_count"] - min_drawn) for row in eligible_rows
+        ]
+        chosen_row = random.choices(eligible_rows, weights=weights, k=1)[0]
         chosen = challenge_row_to_dict(chosen_row)
 
         # ----- Assign users (random, no repeats within this draw) -----
@@ -614,16 +635,30 @@ def draw(payload: DrawRequest) -> DrawResult:
                 )
 
         # ----- Mark chosen challenge as used (las repetibles no se marcan) -----
+        # Siempre se incrementa draw_count para ir bajando la probabilidad de
+        # que vuelva a salir; las no repetibles además se marcan como usadas.
         if not chosen["repeatable"]:
             conn.execute(
-                "UPDATE challenges SET is_used = 1 WHERE id = ?", (chosen["id"],)
+                "UPDATE challenges SET is_used = 1, draw_count = draw_count + 1 "
+                "WHERE id = ?",
+                (chosen["id"],),
             )
             chosen["is_used"] = True
+        else:
+            conn.execute(
+                "UPDATE challenges SET draw_count = draw_count + 1 WHERE id = ?",
+                (chosen["id"],),
+            )
         conn.commit()
 
-        # ----- Remaining = eligible cards left with the SAME pool after this one.
-        # Una carta repetible sigue disponible, así que no se descuenta.
-        remaining = len(eligible_rows) - (0 if chosen["repeatable"] else 1)
+        # ----- Remaining = cartas que aún NO han salido esta sesión (draw_count
+        # == 0), con el mismo filtro de colección que el sorteo. Es el indicador
+        # de progreso del contador: baja hasta 0 cuando han salido todas. No
+        # bloquea el sorteo: las repetibles siguen siendo elegibles aunque sea 0.
+        remaining = conn.execute(
+            "SELECT COUNT(*) AS c FROM challenges WHERE draw_count = 0" + coll_clause,
+            coll_params,
+        ).fetchone()["c"]
 
     return DrawResult(
         challenge=Challenge(**chosen),
@@ -643,13 +678,14 @@ def reset(collection_id: int | None = Query(default=None)) -> ResetResult:
     with _lock:
         if collection_id is not None:
             cur = conn.execute(
-                "UPDATE challenges SET is_used = 0 "
-                "WHERE is_used = 1 AND collection_id = ?",
+                "UPDATE challenges SET is_used = 0, draw_count = 0 "
+                "WHERE (is_used = 1 OR draw_count > 0) AND collection_id = ?",
                 (collection_id,),
             )
         else:
             cur = conn.execute(
-                "UPDATE challenges SET is_used = 0 WHERE is_used = 1"
+                "UPDATE challenges SET is_used = 0, draw_count = 0 "
+                "WHERE is_used = 1 OR draw_count > 0"
             )
         conn.commit()
         count = cur.rowcount
@@ -667,7 +703,7 @@ def stats(collection_id: int | None = Query(default=None)) -> Stats:
             ).fetchone()["c"]
             used = conn.execute(
                 "SELECT COUNT(*) AS c FROM challenges "
-                "WHERE is_used = 1 AND collection_id = ?",
+                "WHERE draw_count > 0 AND collection_id = ?",
                 (collection_id,),
             ).fetchone()["c"]
         else:
@@ -675,7 +711,11 @@ def stats(collection_id: int | None = Query(default=None)) -> Stats:
                 "SELECT COUNT(*) AS c FROM challenges"
             ).fetchone()["c"]
             used = conn.execute(
-                "SELECT COUNT(*) AS c FROM challenges WHERE is_used = 1"
+                "SELECT COUNT(*) AS c FROM challenges WHERE draw_count > 0"
             ).fetchone()["c"]
         users = conn.execute("SELECT COUNT(*) AS c FROM users").fetchone()["c"]
+    # "used" = cartas que YA han salido (draw_count>0), incluidas las repetibles;
+    # "available" = las que aún no han salido. Así el contador refleja progreso y
+    # llega a 0 cuando han salido todas (el sorteo sigue permitido: las repetibles
+    # siguen siendo elegibles aunque available sea 0).
     return Stats(total=total, used=used, available=total - used, users=users)
