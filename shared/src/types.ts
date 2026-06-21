@@ -8,6 +8,7 @@ export interface Challenge {
   involved_users: number | null // personas totales involucradas (opcional)
   repeatable: boolean // puede salir más de una vez en la misma sesión
   is_used: boolean
+  draw_count: number // veces que ha salido esta sesión (pondera el anti-repetición)
   created_at: string // ISO 8601
   collection_id: number // colección a la que pertenece
 }

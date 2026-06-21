@@ -232,20 +232,22 @@ export const useStore = create<AppState>((set, get) => ({
           ? { mode, selected_user_ids: selectedUserIds, collection_id: collectionId }
           : { mode: 'random' as const, collection_id: collectionId }
       const result = await repository.draw(request)
+      // result.remaining = cartas que aún no han salido (incluye repetibles la
+      // primera vez); el contador muestra eso. refreshStats luego reconcilia.
       set((state) => ({
         result,
         drawId: state.drawId + 1,
         drawing: false,
         challenges: state.challenges.map((challenge) =>
           challenge.id === result.challenge.id
-            ? { ...challenge, is_used: true }
+            ? { ...challenge, is_used: result.challenge.is_used }
             : challenge,
         ),
         stats: state.stats
           ? {
               ...state.stats,
-              used: state.stats.used + 1,
-              available: Math.max(0, state.stats.available - 1),
+              available: result.remaining,
+              used: state.stats.total - result.remaining,
             }
           : state.stats,
       }))

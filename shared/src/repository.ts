@@ -171,6 +171,7 @@ export class InMemoryRepository implements RetoBoxRepository {
       involved_users: normalized.involved_users,
       repeatable: normalized.repeatable,
       is_used: false,
+      draw_count: 0,
       created_at: new Date().toISOString(),
       collection_id: collectionId,
     }
@@ -253,6 +254,7 @@ export class InMemoryRepository implements RetoBoxRepository {
         involved_users: normalized.involved_users,
         repeatable: normalized.repeatable,
         is_used: false,
+        draw_count: 0,
         created_at: new Date().toISOString(),
         collection_id: targetId,
       })
@@ -350,9 +352,14 @@ export class InMemoryRepository implements RetoBoxRepository {
     const normalized = validateDrawRequest(request)
     const result = selectDraw(this.challenges, this.users, normalized, this.rng)
     const challenge = this.challenges.find((item) => item.id === result.challenge.id)
-    // Las repetibles no se marcan como usadas: siguen disponibles en la sesión.
-    if (challenge && !challenge.repeatable) {
-      challenge.is_used = true
+    if (challenge) {
+      // Siempre se incrementa draw_count (baja la probabilidad de repetir y
+      // alimenta el contador de "sin salir"); las no repetibles además se marcan
+      // como usadas para que no vuelvan a ser elegibles.
+      challenge.draw_count += 1
+      if (!challenge.repeatable) {
+        challenge.is_used = true
+      }
     }
     return result
   }
@@ -363,8 +370,11 @@ export class InMemoryRepository implements RetoBoxRepository {
       if (collectionId != null && challenge.collection_id !== collectionId) {
         continue
       }
-      if (challenge.is_used) {
+      // Cuenta y restaura tanto las usadas (no repetibles) como las repetibles
+      // que ya hayan salido (draw_count > 0), devolviéndolas a "sin salir".
+      if (challenge.is_used || challenge.draw_count > 0) {
         challenge.is_used = false
+        challenge.draw_count = 0
         count++
       }
     }

@@ -48,6 +48,7 @@ interface ChallengeRow {
   involved_users: number | null
   repeatable: number
   is_used: number
+  draw_count: number
   created_at: string
   collection_id: number
 }
@@ -93,6 +94,7 @@ function rowToChallenge(row: ChallengeRow): Challenge {
     involved_users: row.involved_users ?? null,
     repeatable: Boolean(row.repeatable),
     is_used: Boolean(row.is_used),
+    draw_count: row.draw_count ?? 0,
     created_at: row.created_at,
     collection_id: row.collection_id,
   }
@@ -130,6 +132,7 @@ export class SqliteRepository implements RetoBoxRepository {
         involved_users INTEGER,
         repeatable     INTEGER NOT NULL DEFAULT 0,
         is_used        INTEGER NOT NULL DEFAULT 0,
+        draw_count     INTEGER NOT NULL DEFAULT 0,
         created_at     TEXT    NOT NULL,
         collection_id  INTEGER
       );
@@ -168,6 +171,12 @@ export class SqliteRepository implements RetoBoxRepository {
     }
     if (!existing.has('collection_id')) {
       await db.execAsync('ALTER TABLE challenges ADD COLUMN collection_id INTEGER')
+    }
+    if (!existing.has('draw_count')) {
+      // Veces que ha salido la carta en la sesión: pondera el anti-repetición.
+      await db.execAsync(
+        'ALTER TABLE challenges ADD COLUMN draw_count INTEGER NOT NULL DEFAULT 0',
+      )
     }
     await db.execAsync(
       'CREATE INDEX IF NOT EXISTS idx_challenges_collection ON challenges(collection_id)',
@@ -329,6 +338,7 @@ export class SqliteRepository implements RetoBoxRepository {
       involved_users: normalized.involved_users,
       repeatable: normalized.repeatable,
       is_used: false,
+      draw_count: 0,
       created_at: createdAt,
       collection_id: collectionId,
     }
@@ -581,23 +591,36 @@ export class SqliteRepository implements RetoBoxRepository {
     ])
     // selectDraw aplica la lógica del contrato y lanza DomainError (400/409) si procede.
     const result = selectDraw(challenges, users, normalized)
-    // Las repetibles no se marcan como usadas: siguen disponibles en la sesión.
-    if (!result.challenge.repeatable) {
-      await this.db.runAsync('UPDATE challenges SET is_used = 1 WHERE id = ?', [
-        result.challenge.id,
-      ])
+    // Siempre se incrementa draw_count (baja la probabilidad de repetir y alimenta
+    // el contador de "sin salir"); las no repetibles además se marcan como usadas.
+    if (result.challenge.repeatable) {
+      await this.db.runAsync(
+        'UPDATE challenges SET draw_count = draw_count + 1 WHERE id = ?',
+        [result.challenge.id],
+      )
+    } else {
+      await this.db.runAsync(
+        'UPDATE challenges SET is_used = 1, draw_count = draw_count + 1 WHERE id = ?',
+        [result.challenge.id],
+      )
     }
     return result
   }
 
   async reset(collectionId?: number): Promise<ResetResult> {
+    // Restaura tanto las usadas como las repetibles ya salidas (draw_count > 0),
+    // devolviéndolas todas a "sin salir".
     const result =
       collectionId != null
         ? await this.db.runAsync(
-            'UPDATE challenges SET is_used = 0 WHERE is_used = 1 AND collection_id = ?',
+            'UPDATE challenges SET is_used = 0, draw_count = 0 ' +
+              'WHERE (is_used = 1 OR draw_count > 0) AND collection_id = ?',
             [collectionId],
           )
-        : await this.db.runAsync('UPDATE challenges SET is_used = 0 WHERE is_used = 1')
+        : await this.db.runAsync(
+            'UPDATE challenges SET is_used = 0, draw_count = 0 ' +
+              'WHERE is_used = 1 OR draw_count > 0',
+          )
     return { reset: result.changes }
   }
 

@@ -8,6 +8,13 @@ import { MESSAGES } from './messages'
 import { defaultRng, type Rng } from './rng'
 import type { Challenge, DrawRequest, DrawResult, Stats, User } from './types'
 
+// Factor de decaimiento de probabilidad para cartas repetibles. El peso de una
+// carta en el sorteo es REPEAT_DECAY ** (veces ya sacada). Con 0.1, una vista una
+// vez es 10x menos probable que una sin ver, etc. Así las repetibles sin salir se
+// priorizan con fuerza y prácticamente no se repite ninguna hasta que van saliendo
+// las demás. DEBE coincidir con REPEAT_DECAY del backend (CONTRACT.md).
+export const REPEAT_DECAY = 0.1
+
 export function selectDraw(
   challenges: readonly Challenge[],
   users: readonly User[],
@@ -57,10 +64,18 @@ export function selectDraw(
     throw new DomainError(409, MESSAGES.noChallengesLeft)
   }
 
-  // ----- Elegir reto al azar y asignar jugadores -----
+  // ----- Elegir reto (ponderado por veces ya sorteada) y asignar jugadores -----
+  // Las cartas que ya han salido pesan menos: las repetibles sin salir (o menos
+  // sacadas) tienen mucha más probabilidad. Restamos el draw_count mínimo del
+  // bote para que el menos sacado pese 1.0 y los exponentes no crezcan sin límite
+  // en sesiones largas (evita underflow). Réplica del backend (CONTRACT.md).
   // Solo se asignan usuarios con nombre a quienes REALIZAN el reto; el resto de
   // involucrados queda como participantes anónimos.
-  const chosen = rng.choice(eligible)
+  const minDrawn = Math.min(...eligible.map((challenge) => challenge.draw_count))
+  const weights = eligible.map(
+    (challenge) => REPEAT_DECAY ** (challenge.draw_count - minDrawn),
+  )
+  const chosen = rng.weighted(eligible, weights)
   const assignedUsers =
     totalUsers > 0 && chosen.required_users > 0
       ? rng.sample(pool, chosen.required_users)
@@ -70,14 +85,19 @@ export function selectDraw(
     anonymousCount = Math.max(0, chosen.involved_users - chosen.required_users)
   }
 
+  // remaining = cartas que aún NO han salido esta sesión (draw_count === 0) en el
+  // ámbito de colección. Es el indicador de progreso del contador: baja hasta 0
+  // cuando han salido todas. No bloquea el sorteo (las repetibles siguen siendo
+  // elegibles aunque sea 0). El repositorio incrementa draw_count tras esta
+  // función, así que descontamos la elegida si era una carta sin salir.
+  const unseen = scoped.filter((challenge) => challenge.draw_count === 0).length
+
   return {
     // Las repetibles nunca se marcan como usadas.
     challenge: { ...chosen, is_used: chosen.repeatable ? chosen.is_used : true },
     assigned_users: assignedUsers,
     anonymous_count: anonymousCount,
-    // remaining = elegibles que seguirían siéndolo con el mismo pool tras esta.
-    // Una repetible sigue disponible, así que no se descuenta.
-    remaining: eligible.length - (chosen.repeatable ? 0 : 1),
+    remaining: unseen - (chosen.draw_count === 0 ? 1 : 0),
   }
 }
 
@@ -85,7 +105,10 @@ export function computeStats(
   challenges: readonly Challenge[],
   users: readonly User[],
 ): Stats {
+  // "used" = cartas que YA han salido (draw_count > 0), incluidas las repetibles;
+  // "available" = las que aún no han salido. Así el contador refleja progreso y
+  // llega a 0 cuando han salido todas (el sorteo sigue permitido).
   const total = challenges.length
-  const used = challenges.filter((challenge) => challenge.is_used).length
+  const used = challenges.filter((challenge) => challenge.draw_count > 0).length
   return { total, used, available: total - used, users: users.length }
 }

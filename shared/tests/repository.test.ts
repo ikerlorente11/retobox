@@ -167,9 +167,13 @@ describe('repeatable & involved_users', () => {
       const body = await repo.draw({ mode: 'random' })
       expect(body.challenge.title).toBe('Repe')
       expect(body.challenge.is_used).toBe(false)
-      expect(body.remaining).toBe(1)
+      // Tras salir una vez ya no quedan cartas "sin salir", pero se puede seguir
+      // sacando (sigue siendo elegible por ser repetible).
+      expect(body.remaining).toBe(0)
     }
-    expect((await repo.getStats()).used).toBe(0)
+    const stats = await repo.getStats()
+    expect(stats.used).toBe(1) // ha salido (draw_count>0) -> cuenta como vista
+    expect(stats.available).toBe(0)
   })
 
   it('la elegibilidad usa involved_users', async () => {
