@@ -159,7 +159,10 @@ export function SorteoPage({ goTo }: Props) {
         whileTap={{ scale: 0.95 }}
         className="relative grid h-44 w-44 place-items-center rounded-full bg-neon-gradient text-2xl font-extrabold text-white shadow-glow disabled:opacity-60 md:h-52 md:w-52"
       >
-        <span className="absolute inset-0 animate-pulse rounded-full bg-white/10 blur-xl" />
+        {/* Brillo estático: el `animate-pulse` sobre una capa con blur provocaba
+            un parpadeo al re-rasterizar el desenfoque cada frame en hardware
+            modesto (Raspberry Pi). */}
+        <span className="absolute inset-0 rounded-full bg-white/10 blur-lg" />
         <span className="relative z-10 flex flex-col items-center">
           {drawing ? (
             <motion.span
@@ -234,11 +237,13 @@ export function SorteoPage({ goTo }: Props) {
             exit={{ opacity: 0 }}
           >
             {showConfetti && <Confetti />}
-            {/* El popup se ajusta al contenido (w-auto) y, al revelarse el reto,
-                crece de forma animada (layout) para mostrar el detalle debajo. */}
+            {/* El popup se ajusta al contenido (w-auto). Al revelarse el reto, el
+                detalle aparece debajo con su propia animación de entrada. No se
+                usa `layout` aquí: dentro de un overlay con `exit` de
+                AnimatePresence dejaba la salida colgada y el overlay a pantalla
+                completa seguía capturando clics tras cerrar. */}
             <motion.div
               key={drawId}
-              layout
               className="glass-strong relative flex w-auto min-w-[17rem] max-w-[calc(100vw-2rem)] flex-col items-center rounded-4xl p-6"
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
@@ -275,7 +280,6 @@ export function SorteoPage({ goTo }: Props) {
               {/* Detalle del reto: aparece debajo SOLO cuando ya se ha revelado. */}
               {revealed && (
                 <motion.div
-                  layout
                   className="mt-3 w-full text-center"
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -377,7 +381,7 @@ function ModeButton({
         <motion.span
           layoutId="mode-pill"
           className="absolute inset-0 rounded-xl bg-neon-gradient shadow-glow"
-          transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+          transition={{ type: 'tween', ease: 'easeOut', duration: 0.22 }}
         />
       )}
       <span className={`relative z-10 ${active ? 'text-white' : 'text-slate-400'}`}>
