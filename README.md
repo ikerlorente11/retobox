@@ -20,6 +20,9 @@ SQLite**, sin backend ni conexión. Ver [`mobile/README.md`](./mobile/README.md)
   - **Sin usuarios:** saca un reto al azar.
   - **Aleatorio total:** saca un reto elegible y asigna jugadores al azar.
   - **Usuarios seleccionados:** eliges quién juega y sale un reto compatible.
+- 👯 **Sortea un compañero:** en el popup del reto, un "roll" tipo tragaperras elige al azar
+  a otra persona (de las que no han salido, todos los usuarios menos los asignados) para que
+  lo haga con quien le ha tocado; se puede volver a tirar. Es 100% del cliente (web y móvil).
 - 🚫 Filtrado: solo salen retos realizables con los usuarios disponibles.
 - 🔁 **Anti-repetición:** las no repetibles no vuelven hasta **Reiniciar sesión**; las repetibles
   salen con probabilidad decreciente (tienden a salir todas antes de repetir). El contador muestra

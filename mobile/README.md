@@ -8,6 +8,8 @@ través del paquete [`@retobox/shared`](../shared) (fuente de verdad: [`CONTRACT
 
 - **Sorteo** de retos (tragaperras animada) con modo aleatorio o por usuarios
   seleccionados; reparte "realizan" y muestra los "involucrados" anónimos.
+- **Sortea un compañero:** en el popup del reto, un "roll" tragaperras elige al azar a otra
+  persona (todos los usuarios menos los asignados) para hacerlo con quien le ha tocado; con re-roll.
 - **Retos** por **colecciones** (crear/renombrar/borrar; la activa filtra sorteo,
   stats y reinicio), con campos `involucrados` y `repetible`.
 - **Usuarios** con avatar de color.
