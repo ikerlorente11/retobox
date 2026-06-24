@@ -154,7 +154,7 @@ export function PartnerRoll({ candidates, soundEnabled }: Props) {
       )}
       {phase === 'done' && (
         <Pressable onPress={roll} style={[styles.ghost, styles.ghostAgain, { borderColor: colors.cardBorder }]}>
-          <Text style={[styles.ghostText, { color: colors.text }]}>🔁 {t('partner.again')}</Text>
+          <Text style={[styles.ghostText, { color: colors.text }]}>🎲 {t('partner.again')}</Text>
         </Pressable>
       )}
     </View>

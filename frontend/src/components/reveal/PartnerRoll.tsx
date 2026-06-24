@@ -126,7 +126,7 @@ export function PartnerRoll({ candidates, soundEnabled }: Props) {
 
       {phase === 'done' && (
         <button onClick={roll} className="btn-ghost mt-3 w-full text-sm">
-          🔁 {t('partner.again')}
+          🎲 {t('partner.again')}
         </button>
       )}
     </div>
