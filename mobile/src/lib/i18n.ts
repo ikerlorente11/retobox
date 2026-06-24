@@ -55,6 +55,9 @@ const es: Dict = {
   'sorteo.manageUsers': 'Gestionar usuarios',
   'reveal.elReto': 'EL RETO',
   'reveal.leTocaA': 'LE TOCA A',
+  'partner.cta': 'Sortear compañero',
+  'partner.heading': 'LO HACE CON',
+  'partner.again': 'Otro compañero',
 
   // retos
   'retos.title': 'Retos',
@@ -239,6 +242,9 @@ const en: Dict = {
   'sorteo.manageUsers': 'Manage users',
   'reveal.elReto': 'THE CHALLENGE',
   'reveal.leTocaA': "IT'S FOR",
+  'partner.cta': 'Draw a partner',
+  'partner.heading': 'DOES IT WITH',
+  'partner.again': 'Another partner',
 
   'retos.title': 'Challenges',
   'retos.subtitle': '{count} challenges · {used} used',

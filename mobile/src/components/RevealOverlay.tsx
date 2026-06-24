@@ -14,6 +14,7 @@ import { Avatar } from '../ui/Avatar'
 import { GradientButton } from '../ui/GradientButton'
 import { GradientText } from '../ui/GradientText'
 import { Confetti } from './Confetti'
+import { PartnerRoll } from './PartnerRoll'
 
 interface Props {
   result: DrawResult
@@ -135,7 +136,15 @@ export function RevealOverlay({
   const colors = useColors()
   const t = useT()
   const soundEnabled = useStore((state) => state.soundEnabled)
+  const users = useStore((state) => state.users)
   const [settled, setSettled] = useState(false)
+
+  // Bote para el "roll" de compañero: todos los usuarios menos los asignados al
+  // reto. Si queda alguien, se ofrece sortear con quién lo hace.
+  const partnerCandidates = useMemo(() => {
+    const assignedIds = new Set(result.assigned_users.map((user) => user.id))
+    return users.filter((user) => !assignedIds.has(user.id))
+  }, [result, users])
 
   // Reinicia el estado cuando cambia el reto (nueva tirada).
   const handleSettled = useMemo(() => () => setSettled(true), [])
@@ -190,6 +199,10 @@ export function RevealOverlay({
                     </Text>
                   )}
                 </>
+              )}
+
+              {partnerCandidates.length > 0 && (
+                <PartnerRoll candidates={partnerCandidates} soundEnabled={soundEnabled} />
               )}
 
               <Text style={[styles.remaining, { color: colors.textFaint }]}>

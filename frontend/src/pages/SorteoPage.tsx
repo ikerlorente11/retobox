@@ -7,6 +7,7 @@ import { CollectionIcon } from '../components/icons'
 import { useT } from '../lib/useT'
 import { SlotMachine } from '../components/reveal/SlotMachine'
 import { Dice3D } from '../components/reveal/Dice3D'
+import { PartnerRoll } from '../components/reveal/PartnerRoll'
 import type { Tab } from '../components/TabBar'
 
 interface Props {
@@ -49,6 +50,14 @@ export function SorteoPage({ goTo }: Props) {
     () => challenges.map((c) => c.title).slice(0, 30),
     [challenges],
   )
+
+  // Bote para el "roll" de compañero: todos los usuarios menos los que ya están
+  // asignados al reto. Si queda alguien, se ofrece sortear con quién lo hace.
+  const partnerCandidates = useMemo(() => {
+    if (!result) return []
+    const assignedIds = new Set(result.assigned_users.map((u) => u.id))
+    return users.filter((u) => !assignedIds.has(u.id))
+  }, [result, users])
 
   const available = stats?.available ?? 0
   const total = stats?.total ?? challenges.length
@@ -244,7 +253,7 @@ export function SorteoPage({ goTo }: Props) {
                 completa seguía capturando clics tras cerrar. */}
             <motion.div
               key={drawId}
-              className="glass-strong relative flex w-auto min-w-[17rem] max-w-[calc(100vw-2rem)] flex-col items-center rounded-4xl p-6"
+              className="glass-strong relative flex w-auto min-w-[17rem] max-w-[min(28rem,calc(100vw-2rem))] flex-col items-center rounded-4xl p-6"
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               transition={{ type: 'spring', stiffness: 280, damping: 26 }}
@@ -289,7 +298,7 @@ export function SorteoPage({ goTo }: Props) {
                     {result.challenge.title}
                   </h3>
                   {result.challenge.description && (
-                    <p className="mt-2 text-sm text-slate-300">
+                    <p className="mt-2 whitespace-pre-line break-words text-sm text-slate-300">
                       {result.challenge.description}
                     </p>
                   )}
@@ -316,6 +325,13 @@ export function SorteoPage({ goTo }: Props) {
                       )}
                     </div>
                   )}
+                  {partnerCandidates.length > 0 && (
+                    <PartnerRoll
+                      candidates={partnerCandidates}
+                      soundEnabled={soundEnabled}
+                    />
+                  )}
+
                   <p className="mt-3 text-xs text-slate-500">
                     {t('sorteo.remainingSession', { n: result.remaining })}
                   </p>
