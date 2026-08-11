@@ -27,9 +27,9 @@
   "submit": {
     "production": {
       "android": {
-        "track": "internal",
+        "track": "production",
         "releaseStatus": "completed",
-        "changesNotSentForReview": true
+        "changesNotSentForReview": false
       }
     }
   }
