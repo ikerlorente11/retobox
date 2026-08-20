@@ -81,6 +81,19 @@ eas submit -p android                        # (opcional) subida a la consola
 El keystore lo gestiona EAS (guárdalo con cuidado: es crítico para futuras
 actualizaciones). `applicationId` = `com.ikerlorente11.retobox` (ver `app.json`).
 
+## 🔄 Publicar actualizaciones
+
+Dos vías según lo que cambie:
+
+| Cambio | Comando | Llega al usuario |
+|---|---|---|
+| Solo JS/assets (pantallas, lógica, datos) | `eas update --branch production -m "mensaje"` | Solo, al reabrir la app dos veces |
+| Nativo (módulos, permisos, SDK, iconos) | subir `version` y `versionCode` en `app.json` → `eas build -p android --profile production --auto-submit` | Actualizando desde Play Store (el AAB se sube solo a Play Console) |
+
+La *runtime version* sigue la versión de la app (`appVersion`): tras un build nuevo con otra
+versión, los binarios antiguos dejan de recibir OTAs (protección de compatibilidad).
+La subida automática usa `credentials/play-service-account.json` (gitignored).
+
 ## ⚠️ Notas de scope (ver plan)
 
 - **Dos UIs en paralelo:** la web (React DOM) y esta app (React Native) tienen UIs

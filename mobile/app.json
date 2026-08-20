@@ -2,7 +2,7 @@
   "expo": {
     "name": "RetoBox",
     "slug": "retobox",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "scheme": "retobox",
     "userInterfaceStyle": "automatic",
@@ -22,7 +22,7 @@
     },
     "android": {
       "package": "com.ikerlorente11.retobox",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1c1033"
@@ -64,6 +64,12 @@
         "projectId": "38f81397-6fbb-4a93-b94e-6c930a6e8b57"
       }
     },
-    "owner": "ikerlorente11"
+    "owner": "ikerlorente11",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/38f81397-6fbb-4a93-b94e-6c930a6e8b57"
+    }
   }
 }

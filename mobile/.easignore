@@ -7,3 +7,4 @@ ios/
 dist/
 web-build/
 *.log
+credentials/

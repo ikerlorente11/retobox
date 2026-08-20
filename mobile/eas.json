@@ -6,13 +6,15 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "channel": "development"
     },
     "preview": {
       "distribution": "internal",
       "android": {
         "buildType": "apk"
-      }
+      },
+      "channel": "preview"
     },
     "production": {
       "distribution": "store",
@@ -21,7 +23,8 @@
       ],
       "android": {
         "buildType": "app-bundle"
-      }
+      },
+      "channel": "production"
     }
   },
   "submit": {
@@ -29,7 +32,8 @@
       "android": {
         "track": "production",
         "releaseStatus": "completed",
-        "changesNotSentForReview": false
+        "changesNotSentForReview": false,
+        "serviceAccountKeyPath": "./credentials/play-service-account.json"
       }
     }
   }

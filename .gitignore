@@ -28,3 +28,9 @@ backups/
 # ---- Editores ----
 .vscode/
 .idea/
+
+# Credenciales locales (clave de cuenta de servicio de Play)
+mobile/credentials/
+
+# graphify - grafo regenerable, no fuente
+graphify-out/
