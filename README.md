@@ -171,3 +171,8 @@ npm run build      # typecheck (tsc -b) + build de producción
   Google verificando el ID token en el backend.
 - El front guarda en `localStorage` el tema, el estilo de animación, el **idioma**, la
   **colección activa** y la **clave de invitado**.
+
+## Licencia
+
+Puedes usar, modificar y compartir este proyecto libremente para fines **no comerciales**.
+No está permitido venderlo ni ganar dinero con él. Ver [LICENSE](LICENSE) (PolyForm Noncommercial 1.0.0).
