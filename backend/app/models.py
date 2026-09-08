@@ -27,6 +27,9 @@ class Challenge(BaseModel):
 class Collection(BaseModel):
     id: int
     name: str
+    # Cuenta dueña; None = preset pública de solo lectura.
+    owner_id: int | None = None
+    preset: bool = False
     created_at: str
 
 
@@ -41,6 +44,8 @@ class WordGroup(BaseModel):
     name: str
     # Palabras del grupo (cada grupo es un rodillo en el mezclador).
     words: list[str] = []
+    # True para los grupos preset (públicos y de solo lectura).
+    preset: bool = False
     created_at: str
 
 
@@ -72,6 +77,19 @@ class ImportResult(BaseModel):
 
 class Health(BaseModel):
     status: str
+
+
+class Account(BaseModel):
+    id: int
+    email: str
+    name: str
+    has_password: bool
+    has_google: bool
+
+
+class AuthConfig(BaseModel):
+    # Client ID público de Google; None = botón de Google oculto.
+    google_client_id: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -233,6 +251,30 @@ class ImportGroupsRequest(BaseModel):
     # Refleja el fichero exportado: una lista de grupos. Cada grupo se valida
     # igual que al crearlo. Los duplicados (por nombre) se omiten en la ruta.
     groups: list[WordGroupCreate]
+
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str = Field(..., min_length=8, max_length=128)
+    name: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def clean_name(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        v = v.strip()
+        return v[:80] or None
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str = Field(..., max_length=128)
+
+
+class GoogleLoginRequest(BaseModel):
+    # ID token entregado por Google Identity Services en el navegador.
+    credential: str = Field(..., min_length=1, max_length=4096)
 
 
 class DrawRequest(BaseModel):

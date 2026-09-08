@@ -316,28 +316,34 @@ function GroupCard({
               </div>
             )}
 
-            <div className="mt-3 flex justify-end gap-2">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onEdit()
-                }}
-                className="grid h-8 w-8 place-items-center rounded-xl bg-white/5 text-slate-300 hover:bg-white/10"
-                aria-label={`${t('common.edit')} ${g.name}`}
-              >
-                <EditIcon className="h-4 w-4" />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onDelete()
-                }}
-                className="grid h-8 w-8 place-items-center rounded-xl bg-rose-500/15 text-rose-200 hover:bg-rose-500/25"
-                aria-label={`${t('common.delete')} ${g.name}`}
-              >
-                <TrashIcon className="h-4 w-4" />
-              </button>
-            </div>
+            {g.preset ? (
+              <p className="mt-3 text-right text-[11px] text-slate-500">
+                {t('combos.presetGroup')}
+              </p>
+            ) : (
+              <div className="mt-3 flex justify-end gap-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onEdit()
+                  }}
+                  className="grid h-8 w-8 place-items-center rounded-xl bg-white/5 text-slate-300 hover:bg-white/10"
+                  aria-label={`${t('common.edit')} ${g.name}`}
+                >
+                  <EditIcon className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDelete()
+                  }}
+                  className="grid h-8 w-8 place-items-center rounded-xl bg-rose-500/15 text-rose-200 hover:bg-rose-500/25"
+                  aria-label={`${t('common.delete')} ${g.name}`}
+                >
+                  <TrashIcon className="h-4 w-4" />
+                </button>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

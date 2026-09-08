@@ -1,7 +1,9 @@
 import { create } from 'zustand'
-import { api, ApiError } from './api'
+import { api, ApiError, setUnauthorizedHandler } from './api'
+import { rotateGuestKey } from './lib/guest'
 import { LANG_KEY, loadLang, translate } from './lib/i18n'
 import type {
+  Account,
   Challenge,
   ChallengeInput,
   ChallengeUpdate,
@@ -11,6 +13,8 @@ import type {
   DrawResult,
   ImportResult,
   Lang,
+  LoginInput,
+  RegisterInput,
   RevealStyle,
   Stats,
   Theme,
@@ -50,7 +54,47 @@ applyTheme(loadTheme())
 // Refleja el idioma en <html lang> para accesibilidad/SEO.
 document.documentElement.lang = loadLang()
 
+// Carga colecciones, jugadores, grupos y la colección activa. Se usa al
+// arrancar y cada vez que cambia la sesión (los datos dependen del dueño).
+async function loadData() {
+  const [collections, users, wordGroups] = await Promise.all([
+    api.getCollections(),
+    api.getUsers(),
+    api.getWordGroups(),
+  ])
+  // Colección activa: la guardada si sigue existiendo, si no la primera.
+  const stored = Number(localStorage.getItem(COLLECTION_KEY))
+  const activeCollectionId =
+    collections.find((c) => c.id === stored)?.id ?? collections[0]?.id ?? null
+  const [challenges, stats] = await Promise.all([
+    api.getChallenges(activeCollectionId ?? undefined),
+    api.getStats(activeCollectionId ?? undefined),
+  ])
+  // Por defecto se seleccionan los grupos que ya tienen palabras.
+  const selectedGroupIds = wordGroups
+    .filter((g) => g.words.length > 0)
+    .map((g) => g.id)
+  if (activeCollectionId != null)
+    localStorage.setItem(COLLECTION_KEY, String(activeCollectionId))
+  useStore.setState({
+    collections,
+    activeCollectionId,
+    challenges,
+    users,
+    stats,
+    wordGroups,
+    selectedGroupIds,
+    result: null,
+    drawError: null,
+  })
+}
+
 interface AppState {
+  // cuenta (null = invitado). authOpen abre el modal de login/registro.
+  account: Account | null
+  googleClientId: string | null
+  authOpen: boolean
+
   // datos
   challenges: Challenge[]
   users: User[]
@@ -86,6 +130,13 @@ interface AppState {
   bootstrap: () => Promise<void>
   refreshStats: () => Promise<void>
 
+  openAuth: () => void
+  closeAuth: () => void
+  register: (input: RegisterInput) => Promise<void>
+  login: (input: LoginInput) => Promise<void>
+  loginWithGoogle: (credential: string) => Promise<void>
+  logout: () => Promise<void>
+
   setMode: (mode: DrawMode) => void
   toggleUserSelection: (id: number) => void
   clearSelection: () => void
@@ -120,6 +171,10 @@ interface AppState {
 }
 
 export const useStore = create<AppState>((set, get) => ({
+  account: null,
+  googleClientId: null,
+  authOpen: false,
+
   challenges: [],
   users: [],
   stats: null,
@@ -148,42 +203,49 @@ export const useStore = create<AppState>((set, get) => ({
   bootstrap: async () => {
     set({ loading: true, loadError: null })
     try {
-      const [collections, users, wordGroups] = await Promise.all([
-        api.getCollections(),
-        api.getUsers(),
-        api.getWordGroups(),
+      const [config, account] = await Promise.all([
+        api.getAuthConfig(),
+        api.me().catch(() => null),
       ])
-      // Colección activa: la guardada si sigue existiendo, si no la primera.
-      const stored = Number(localStorage.getItem(COLLECTION_KEY))
-      const activeCollectionId =
-        collections.find((c) => c.id === stored)?.id ??
-        collections[0]?.id ??
-        null
-      const [challenges, stats] = await Promise.all([
-        api.getChallenges(activeCollectionId ?? undefined),
-        api.getStats(activeCollectionId ?? undefined),
-      ])
-      // Por defecto se seleccionan los grupos que ya tienen palabras.
-      const selectedGroupIds = wordGroups
-        .filter((g) => g.words.length > 0)
-        .map((g) => g.id)
-      if (activeCollectionId != null)
-        localStorage.setItem(COLLECTION_KEY, String(activeCollectionId))
-      set({
-        collections,
-        activeCollectionId,
-        challenges,
-        users,
-        stats,
-        wordGroups,
-        selectedGroupIds,
-        loading: false,
-      })
+      set({ googleClientId: config.google_client_id, account })
+      await loadData()
+      set({ loading: false })
     } catch (e) {
       const msg =
         e instanceof Error ? e.message : translate(get().lang, 'app.loadError')
       set({ loading: false, loadError: msg })
     }
+  },
+
+  openAuth: () => set({ authOpen: true }),
+  closeAuth: () => set({ authOpen: false }),
+
+  register: async (input) => {
+    const account = await api.register(input)
+    rotateGuestKey() // la identidad anterior ya se fusionó en la cuenta
+    set({ account, authOpen: false })
+    await loadData()
+  },
+
+  login: async (input) => {
+    const account = await api.login(input)
+    rotateGuestKey() // la identidad anterior ya se fusionó en la cuenta
+    set({ account, authOpen: false })
+    await loadData()
+  },
+
+  loginWithGoogle: async (credential) => {
+    const account = await api.loginWithGoogle(credential)
+    rotateGuestKey() // la identidad anterior ya se fusionó en la cuenta
+    set({ account, authOpen: false })
+    await loadData()
+  },
+
+  logout: async () => {
+    await api.logout()
+    rotateGuestKey()
+    set({ account: null })
+    await loadData()
   },
 
   refreshStats: async () => {
@@ -455,3 +517,13 @@ export const useStore = create<AppState>((set, get) => ({
     set({ lang })
   },
 }))
+
+// Sesión caducada o acción que requiere cuenta: pasamos a invitado y abrimos el login.
+setUnauthorizedHandler(() => {
+  const s = useStore.getState()
+  if (s.account) {
+    useStore.setState({ account: null })
+    void loadData()
+  }
+  useStore.setState({ authOpen: true })
+})

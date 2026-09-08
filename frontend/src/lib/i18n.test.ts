@@ -12,7 +12,7 @@ describe('translate', () => {
       '3 retos · 1 usados',
     )
     expect(translate('en', 'sorteo.remaining', { total: 5 })).toBe(
-      '/ 5 challenges left',
+      '/ 5 not yet drawn',
     )
   })
 
@@ -26,8 +26,8 @@ describe('translateApiError', () => {
     expect(translateApiError('Colección no encontrada.', 'en')).toBe(
       'Collection not found.',
     )
-    expect(translateApiError('No puedes borrar la única colección.', 'en')).toBe(
-      "You can't delete the only collection.",
+    expect(translateApiError('Inicia sesión para hacer esto.', 'en')).toBe(
+      'Sign in to do this.',
     )
   })
 

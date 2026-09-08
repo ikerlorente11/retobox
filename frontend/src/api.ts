@@ -1,6 +1,9 @@
 // Cliente API — rutas relativas /api/... (mismo origen vía nginx en prod, proxy en dev)
+import { getGuestKey } from './lib/guest'
 import { loadLang, translate, translateApiError } from './lib/i18n'
 import type {
+  Account,
+  AuthConfig,
   Challenge,
   ChallengeInput,
   ChallengeUpdate,
@@ -9,6 +12,8 @@ import type {
   DrawRequest,
   DrawResult,
   ImportResult,
+  LoginInput,
+  RegisterInput,
   Stats,
   User,
   UserInput,
@@ -17,6 +22,13 @@ import type {
 } from './types'
 
 const BASE = '/api'
+
+// Avisa a la app cuando el backend responde 401 fuera de las rutas de auth
+// (sesión caducada o acción que requiere cuenta) para abrir el login.
+let onUnauthorized: (() => void) | null = null
+export function setUnauthorizedHandler(handler: (() => void) | null) {
+  onUnauthorized = handler
+}
 
 export class ApiError extends Error {
   status: number
@@ -36,7 +48,10 @@ async function request<T>(
   let res: Response
   try {
     res = await fetch(`${BASE}${path}`, {
-      headers: { 'Content-Type': 'application/json' },
+      // La cookie de sesión identifica la cuenta; la cabecera identifica al
+      // invitado (y permite fusionar sus datos al iniciar sesión).
+      headers: { 'Content-Type': 'application/json', 'X-Guest-Key': getGuestKey() },
+      credentials: 'same-origin',
       ...options,
     })
   } catch {
@@ -58,6 +73,7 @@ async function request<T>(
   }
 
   if (!res.ok) {
+    if (res.status === 401 && !path.startsWith('/auth/')) onUnauthorized?.()
     const raw =
       data && typeof data === 'object' && 'detail' in data
         ? (data as { detail: unknown }).detail
@@ -78,6 +94,26 @@ async function request<T>(
 }
 
 export const api = {
+  // Auth
+  getAuthConfig: () => request<AuthConfig>('/auth/config'),
+  me: () => request<Account>('/auth/me'),
+  register: (body: RegisterInput) =>
+    request<Account>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  login: (body: LoginInput) =>
+    request<Account>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  loginWithGoogle: (credential: string) =>
+    request<Account>('/auth/google', {
+      method: 'POST',
+      body: JSON.stringify({ credential }),
+    }),
+  logout: () => request<void>('/auth/logout', { method: 'POST' }),
+
   // Collections
   getCollections: () => request<Collection[]>('/collections'),
   createCollection: (body: CollectionInput) =>

@@ -12,14 +12,30 @@ import { useT } from '../lib/useT'
 import type { Challenge, Collection } from '../types'
 
 export function RetosPage() {
-  const { challenges, addChallenge, editChallenge, removeChallenge } = useStore()
+  const {
+    challenges,
+    collections,
+    activeCollectionId,
+    account,
+    openAuth,
+    addChallenge,
+    editChallenge,
+    removeChallenge,
+  } = useStore()
   const t = useT()
+  // Las colecciones públicas (presets) son de solo lectura para todos.
+  const readOnly =
+    collections.find((c) => c.id === activeCollectionId)?.preset ?? true
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Challenge | null>(null)
   const [confirmDel, setConfirmDel] = useState<Challenge | null>(null)
   const [expandedId, setExpandedId] = useState<number | null>(null)
 
   function openNew() {
+    if (!account) {
+      openAuth()
+      return
+    }
     setEditing(null)
     setModalOpen(true)
   }
@@ -39,13 +55,29 @@ export function RetosPage() {
             {t('retos.subtitle', { count: challenges.length, used })}
           </p>
         </div>
-        <button onClick={openNew} className="btn-primary !px-4">
-          <PlusIcon className="h-5 w-5" />
-          {t('common.add')}
-        </button>
+        {!readOnly && (
+          <button onClick={openNew} className="btn-primary !px-4">
+            <PlusIcon className="h-5 w-5" />
+            {t('common.add')}
+          </button>
+        )}
       </header>
 
       <CollectionSelector />
+
+      {readOnly && (
+        <p className="text-center text-xs text-slate-500">
+          {t('col.readOnly')}
+          {!account && (
+            <>
+              {' '}
+              <button onClick={openAuth} className="font-semibold text-neon-purple">
+                {t('auth.login')}
+              </button>
+            </>
+          )}
+        </p>
+      )}
 
       {challenges.length === 0 && (
         <div className="glass mt-6 rounded-3xl p-8 text-center text-slate-400">
@@ -64,6 +96,7 @@ export function RetosPage() {
               onToggle={() =>
                 setExpandedId((id) => (id === c.id ? null : c.id))
               }
+              readOnly={readOnly}
               onEdit={() => openEdit(c)}
               onDelete={() => setConfirmDel(c)}
             />
@@ -117,12 +150,14 @@ const COLLAPSED_DESC_H = 40
 function ChallengeCard({
   c,
   expanded,
+  readOnly,
   onToggle,
   onEdit,
   onDelete,
 }: {
   c: Challenge
   expanded: boolean
+  readOnly: boolean
   onToggle: () => void
   onEdit: () => void
   onDelete: () => void
@@ -202,28 +237,30 @@ function ChallengeCard({
         </div>
       </div>
 
-      <div className="mt-3 flex justify-end gap-2">
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            onEdit()
-          }}
-          className="grid h-9 w-9 place-items-center rounded-xl bg-white/5 text-slate-300 hover:bg-white/10"
-          aria-label={`${t('common.edit')} ${c.title}`}
-        >
-          <EditIcon className="h-4 w-4" />
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            onDelete()
-          }}
-          className="grid h-9 w-9 place-items-center rounded-xl bg-rose-500/15 text-rose-200 hover:bg-rose-500/25"
-          aria-label={`${t('common.delete')} ${c.title}`}
-        >
-          <TrashIcon className="h-4 w-4" />
-        </button>
-      </div>
+      {!readOnly && (
+        <div className="mt-3 flex justify-end gap-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onEdit()
+            }}
+            className="grid h-9 w-9 place-items-center rounded-xl bg-white/5 text-slate-300 hover:bg-white/10"
+            aria-label={`${t('common.edit')} ${c.title}`}
+          >
+            <EditIcon className="h-4 w-4" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete()
+            }}
+            className="grid h-9 w-9 place-items-center rounded-xl bg-rose-500/15 text-rose-200 hover:bg-rose-500/25"
+            aria-label={`${t('common.delete')} ${c.title}`}
+          >
+            <TrashIcon className="h-4 w-4" />
+          </button>
+        </div>
+      )}
     </motion.li>
   )
 }
@@ -233,10 +270,11 @@ function CollectionSelector() {
   const {
     collections,
     activeCollectionId,
-    setActiveCollection,
     addCollection,
     editCollection,
     removeCollection,
+    account,
+    openAuth,
   } = useStore()
   const t = useT()
   const [open, setOpen] = useState(false)
@@ -248,6 +286,17 @@ function CollectionSelector() {
   const ref = useRef<HTMLDivElement>(null)
 
   const active = collections.find((c) => c.id === activeCollectionId) ?? null
+  const presets = collections.filter((c) => c.preset)
+  const mine = collections.filter((c) => !c.preset)
+
+  function openNewCollection() {
+    setOpen(false)
+    if (!account) {
+      openAuth()
+      return
+    }
+    setForm({ mode: 'new', name: '' })
+  }
 
   // Cerrar el menú al hacer clic fuera.
   useEffect(() => {
@@ -304,22 +353,23 @@ function CollectionSelector() {
             exit={{ opacity: 0, y: -6 }}
             className="glass-strong absolute z-30 mt-2 w-full rounded-2xl p-2 shadow-glow"
           >
-            <ul className="flex max-h-64 flex-col gap-1 overflow-y-auto">
-              {collections.map((c) => (
+            <ul className="flex max-h-72 flex-col gap-1 overflow-y-auto">
+              <li className="px-3 pt-1 text-[10px] uppercase tracking-widest text-slate-500">
+                {t('col.public')}
+              </li>
+              {presets.map((c) => (
+                <li key={c.id}>
+                  <CollectionItem c={c} onSelect={() => setOpen(false)} />
+                </li>
+              ))}
+              {account && (
+                <li className="px-3 pt-2 text-[10px] uppercase tracking-widest text-slate-500">
+                  {t('col.mine')}
+                </li>
+              )}
+              {mine.map((c) => (
                 <li key={c.id} className="flex items-center gap-1">
-                  <button
-                    onClick={() => {
-                      void setActiveCollection(c.id)
-                      setOpen(false)
-                    }}
-                    className={`min-w-0 flex-1 truncate rounded-xl px-3 py-2 text-left text-sm font-medium ${
-                      c.id === activeCollectionId
-                        ? 'bg-neon-gradient text-white'
-                        : 'text-slate-200 hover:bg-white/10'
-                    }`}
-                  >
-                    {c.name}
-                  </button>
+                  <CollectionItem c={c} onSelect={() => setOpen(false)} />
                   <button
                     onClick={() => setForm({ mode: 'rename', id: c.id, name: c.name })}
                     className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-300 hover:bg-white/10"
@@ -329,8 +379,7 @@ function CollectionSelector() {
                   </button>
                   <button
                     onClick={() => setConfirmDel(c)}
-                    disabled={collections.length <= 1}
-                    className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-rose-200 hover:bg-rose-500/20 disabled:opacity-30"
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-rose-200 hover:bg-rose-500/20"
                     aria-label={`${t('common.delete')} ${c.name}`}
                   >
                     <TrashIcon className="h-4 w-4" />
@@ -339,11 +388,11 @@ function CollectionSelector() {
               ))}
             </ul>
             <button
-              onClick={() => setForm({ mode: 'new', name: '' })}
+              onClick={openNewCollection}
               className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold text-neon-purple hover:bg-white/10"
             >
               <PlusIcon className="h-4 w-4" />
-              {t('col.new')}
+              {account ? t('col.new') : t('col.loginToCreate')}
             </button>
           </motion.div>
         )}
@@ -411,6 +460,26 @@ function CollectionSelector() {
         </div>
       </Modal>
     </div>
+  )
+}
+
+// Entrada del desplegable: selecciona la colección como activa.
+function CollectionItem({ c, onSelect }: { c: Collection; onSelect: () => void }) {
+  const { activeCollectionId, setActiveCollection } = useStore()
+  return (
+    <button
+      onClick={() => {
+        void setActiveCollection(c.id)
+        onSelect()
+      }}
+      className={`min-w-0 w-full flex-1 truncate rounded-xl px-3 py-2 text-left text-sm font-medium ${
+        c.id === activeCollectionId
+          ? 'bg-neon-gradient text-white'
+          : 'text-slate-200 hover:bg-white/10'
+      }`}
+    >
+      {c.name}
+    </button>
   )
 }
 

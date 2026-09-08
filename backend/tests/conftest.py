@@ -1,8 +1,12 @@
 """Pytest fixtures for the RetoBox API.
 
 A temporary SQLite file is configured BEFORE importing the app (DATABASE_PATH is
-read at import time), seeding is disabled, and every test starts from empty
-tables so tests are order-independent.
+read at import time) and every test starts from empty tables so tests are
+order-independent. Presets are NOT seeded (tests that need them call
+``seed_presets()`` explicitly).
+
+``client`` is a logged-in account (with its auto-created first collection);
+``guest`` is an anonymous visitor identified by an ``X-Guest-Key`` header.
 """
 
 import os
@@ -11,7 +15,8 @@ import tempfile
 # Must be set before importing app.database / app.main.
 _TMP_DIR = tempfile.mkdtemp(prefix="retobox-tests-")
 os.environ["DATABASE_PATH"] = os.path.join(_TMP_DIR, "test.db")
-os.environ.pop("SEED_DATA", None)  # prod-like default: no auto seed
+os.environ["BCRYPT_ROUNDS"] = "4"  # fast hashing in tests
+os.environ.pop("GOOGLE_CLIENT_ID", None)
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
@@ -27,10 +32,16 @@ def _clean_db():
     """Empty all tables and reset autoincrement before each test."""
     conn = get_connection()
     with _lock:
-        conn.execute("DELETE FROM challenges")
-        conn.execute("DELETE FROM users")
-        conn.execute("DELETE FROM word_groups")
-        conn.execute("DELETE FROM collections")
+        for table in (
+            "draw_state",
+            "challenges",
+            "users",
+            "word_groups",
+            "collections",
+            "sessions",
+            "accounts",
+        ):
+            conn.execute(f"DELETE FROM {table}")
         try:
             conn.execute("DELETE FROM sqlite_sequence")
         except Exception:
@@ -39,9 +50,30 @@ def _clean_db():
     yield
 
 
+GUEST_KEY = "guest-test-key-0001"
+ACCOUNT = {"email": "test@example.com", "password": "secret-pass-123", "name": "Tester"}
+
+
+def register(client, **overrides):
+    """Register (and log in) an account on this client. Returns the account."""
+    body = {**ACCOUNT, **overrides}
+    r = client.post("/api/auth/register", json=body)
+    assert r.status_code == 201, r.text
+    return r.json()
+
+
 @pytest.fixture
 def client():
-    return TestClient(app)
+    """A logged-in account with its auto-created first collection."""
+    c = TestClient(app)
+    register(c)
+    return c
+
+
+@pytest.fixture
+def guest():
+    """An anonymous visitor (guest identity via header, no session)."""
+    return TestClient(app, headers={"X-Guest-Key": GUEST_KEY})
 
 
 # --- helpers -------------------------------------------------------------

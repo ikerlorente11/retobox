@@ -1,6 +1,10 @@
 # Despliegue de PRODUCCIÓN: build optimizado, nginx sirve la SPA en :8050.
-# NO se cargan retos de ejemplo (SEED_DATA ausente) -> arranca vacío; solo
-# aparecen los retos que se añadan desde la app.
+# Al arrancar se crean las colecciones públicas (presets) si no existen; el
+# resto de datos pertenece a cada cuenta o invitado.
+#
+# ⚠️ Bases de datos anteriores a la v2 (sin cuentas) no son compatibles: el
+# backend se niega a arrancar. Haz copia y borra el volumen:
+#   docker compose down -v
 name: retobox
 
 services:
@@ -8,7 +12,12 @@ services:
     build: ./backend
     environment:
       - DATABASE_PATH=/data/retobox.db
-      # SEED_DATA deliberadamente ausente -> sin tarjetas de prueba en producción.
+      # Client ID público de Google (login con Google), desde .env. Vacío = botón oculto.
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      # nginx es el único que llega a la API: su X-Real-IP es fiable (throttle de login).
+      - TRUST_PROXY=1
+      # Pon 1 cuando la web se sirva por HTTPS (cookie de sesión con Secure).
+      - COOKIE_SECURE=${COOKIE_SECURE:-0}
     volumes:
       - retobox-data:/data
     expose:

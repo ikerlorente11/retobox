@@ -21,6 +21,9 @@ venv/
 data/
 backups/
 
+# ---- Config local (docker compose) ----
+.env
+
 # ---- Logs / temporales ----
 *.log
 .DS_Store

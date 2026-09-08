@@ -31,8 +31,22 @@ export function AjustesPage() {
     importWordGroups,
     lang,
     setLang,
+    account,
+    openAuth,
+    logout,
+    collections,
+    activeCollectionId,
   } = useStore()
   const t = useT()
+  const activeCollection =
+    collections.find((c) => c.id === activeCollectionId) ?? null
+  // Importar retos escribe en la colección activa: requiere cuenta y que no
+  // sea una colección pública.
+  const importRetosBlocked = !account
+    ? t('settings.importNeedsLogin')
+    : activeCollection?.preset
+      ? t('settings.importPreset')
+      : null
 
   const [confirmReset, setConfirmReset] = useState(false)
   const [resetting, setResetting] = useState(false)
@@ -57,6 +71,29 @@ export function AjustesPage() {
           (CSS multi-columna) para que se empaqueten sin huecos ni tarjetas
           colgando. break-inside-avoid impide que una tarjeta se parta. */}
       <div className="flex flex-col gap-5 md:block md:columns-2 md:gap-5 md:[&>section]:mb-5 md:[&>section]:break-inside-avoid">
+      {/* Cuenta */}
+      <section className="glass rounded-3xl p-5">
+        <h2 className="mb-1 font-bold">{t('auth.account')}</h2>
+        {account ? (
+          <>
+            <p className="text-sm text-slate-300">
+              <span className="font-semibold">{account.name}</span>
+              <span className="block truncate text-slate-400">{account.email}</span>
+            </p>
+            <button onClick={() => void logout()} className="btn-ghost mt-4 w-full">
+              {t('auth.logout')}
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="mb-4 text-sm text-slate-400">{t('auth.guestHint')}</p>
+            <button onClick={openAuth} className="btn-primary w-full">
+              {t('auth.loginOrRegister')}
+            </button>
+          </>
+        )}
+      </section>
+
       {/* Stats */}
       <section className="glass rounded-3xl p-5">
         <h2 className="mb-3 font-bold">{t('settings.stats')}</h2>
@@ -166,6 +203,7 @@ export function AjustesPage() {
         exportLabel={t('settings.exportRetos')}
         noun={t('noun.retos')}
         canExport={challenges.length > 0}
+        importBlocked={importRetosBlocked}
         filename={EXPORT_FILENAME}
         buildContent={() => buildRetosFileContent(challenges)}
         importFile={(text) => importChallenges(parseRetosFile(text))}
@@ -206,7 +244,7 @@ export function AjustesPage() {
 
       </div>
 
-      <p className="text-center text-xs text-slate-600">RetoBox · v1.0</p>
+      <p className="text-center text-xs text-slate-600">RetoBox · v2.0</p>
 
       <Modal
         open={confirmReset}
@@ -241,6 +279,7 @@ function ExportImportCard({
   exportLabel,
   noun,
   canExport,
+  importBlocked = null,
   filename,
   buildContent,
   importFile,
@@ -250,6 +289,7 @@ function ExportImportCard({
   exportLabel: string
   noun: string
   canExport: boolean
+  importBlocked?: string | null // motivo por el que no se puede importar
   filename: string
   buildContent: () => string
   importFile: (text: string) => Promise<{ imported: number; skipped: number }>
@@ -322,12 +362,15 @@ function ExportImportCard({
         </button>
         <button
           onClick={() => inputRef.current?.click()}
-          disabled={importing}
-          className="btn-ghost w-full"
+          disabled={importing || importBlocked != null}
+          className="btn-ghost w-full disabled:opacity-40"
         >
           <ImportIcon className="h-5 w-5" />
           {importing ? t('settings.importing') : t('settings.import')}
         </button>
+        {importBlocked && (
+          <p className="text-center text-xs text-slate-500">{importBlocked}</p>
+        )}
         <input
           ref={inputRef}
           type="file"

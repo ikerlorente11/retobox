@@ -16,6 +16,8 @@ export interface Challenge {
 export interface Collection {
   id: number
   name: string
+  owner_id: number | null // cuenta dueña; null = preset pública (solo lectura)
+  preset: boolean
   created_at: string
 }
 
@@ -34,6 +36,7 @@ export interface WordGroup {
   id: number
   name: string
   words: string[]
+  preset: boolean // grupo público de solo lectura
   created_at: string
 }
 
@@ -91,6 +94,30 @@ export interface WordGroupInput {
 export interface ImportResult {
   imported: number // retos nuevos añadidos
   skipped: number // retos omitidos por estar ya en la BD (duplicados)
+}
+
+// Cuenta registrada (email+contraseña y/o Google)
+export interface Account {
+  id: number
+  email: string
+  name: string
+  has_password: boolean
+  has_google: boolean
+}
+
+export interface AuthConfig {
+  google_client_id: string | null // null = login con Google desactivado
+}
+
+export interface RegisterInput {
+  email: string
+  password: string
+  name?: string
+}
+
+export interface LoginInput {
+  email: string
+  password: string
 }
 
 export type RevealStyle = 'slot' | 'dice'

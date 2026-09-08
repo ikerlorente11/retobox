@@ -8,6 +8,7 @@ import { RetosPage } from './pages/RetosPage'
 import { UsuariosPage } from './pages/UsuariosPage'
 import { CombosPage } from './pages/CombosPage'
 import { AjustesPage } from './pages/AjustesPage'
+import { AuthModal } from './components/AuthModal'
 
 export default function App() {
   const { bootstrap, loading, loadError } = useStore()
@@ -40,6 +41,7 @@ export default function App() {
       )}
 
       {!loading && !loadError && <TabBar active={tab} onChange={setTab} />}
+      <AuthModal />
     </div>
   )
 }

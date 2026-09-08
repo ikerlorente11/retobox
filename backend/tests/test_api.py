@@ -2,13 +2,14 @@
 health, CRUD, validation, the three /draw eligibility cases, error codes,
 no-repeat behaviour, reset and stats."""
 
+import pytest
 from conftest import make_challenge, make_collection, make_user
 
-from app.seed import SEED_CHALLENGES, seed_if_empty
+from app.seed import PRESET_COLLECTIONS, PRESET_WORD_GROUPS, seed_presets
 
 
 # --------------------------------------------------------------------------
-# Health & seed
+# Health & presets
 # --------------------------------------------------------------------------
 
 def test_health(client):
@@ -17,24 +18,27 @@ def test_health(client):
     assert r.json() == {"status": "ok"}
 
 
-def test_seed_inserts_once_and_is_idempotent(client):
-    inserted = seed_if_empty()
-    assert inserted == len(SEED_CHALLENGES)
-    # second call must not duplicate
-    assert seed_if_empty() == 0
-    assert len(client.get("/api/challenges").json()) == len(SEED_CHALLENGES)
+def test_presets_seed_once_and_are_public(guest):
+    assert seed_presets() == len(PRESET_COLLECTIONS)
+    assert seed_presets() == 0  # idempotent
+    cols = guest.get("/api/collections").json()
+    assert len(cols) == len(PRESET_COLLECTIONS)
+    assert all(c["preset"] and c["owner_id"] is None for c in cols)
+    groups = guest.get("/api/word-groups").json()
+    assert len(groups) == len(PRESET_WORD_GROUPS)
+    assert all(g["preset"] for g in groups)
 
 
-def test_seed_data_default_off():
-    """Prod default: auto-seed disabled unless SEED_DATA is set."""
-    from app.main import SEED_DATA
-    assert SEED_DATA is False
-
-
-def test_seed_all_required_users_valid():
-    for title, _desc, req in SEED_CHALLENGES:
-        assert isinstance(title, str) and title.strip()
-        assert req >= 1
+def test_presets_content_valid():
+    keys = [k for k, _n, _c in PRESET_COLLECTIONS]
+    assert len(keys) == len(set(keys))
+    for _key, name, challenges in PRESET_COLLECTIONS:
+        assert name.strip() and challenges
+        titles = {t.strip().lower() for t, _d, _r, _i in challenges}
+        assert len(titles) == len(challenges), name
+        for _t, _d, req, inv in challenges:
+            assert req >= 1
+            assert inv is None or inv >= req
 
 
 # --------------------------------------------------------------------------
@@ -386,11 +390,13 @@ def test_delete_collection_removes_its_challenges(client):
     assert "Adios" not in titles
 
 
-def test_cannot_delete_last_collection(client):
-    make_challenge(client)  # fuerza la colección por defecto
+def test_can_delete_own_last_collection(client):
+    make_challenge(client)  # va a la colección creada al registrarse
     cols = client.get("/api/collections").json()
     assert len(cols) == 1
-    assert client.delete(f"/api/collections/{cols[0]['id']}").status_code == 409
+    assert client.delete(f"/api/collections/{cols[0]['id']}").status_code == 204
+    assert client.get("/api/collections").json() == []
+    assert client.get("/api/challenges").json() == []
 
 
 def test_stats_and_reset_per_collection(client):
@@ -679,22 +685,23 @@ def test_draw_collection_and_involved_threshold(client):
     assert body["challenge"]["title"] == "Need4"
 
 
-def test_migration_backfills_null_collection_id(client):
-    """Un reto sin colección (BD previa) se reasigna a la por defecto en init_db."""
-    from app.database import _lock, get_connection, init_db
+def test_legacy_database_is_rejected(tmp_path):
+    """Una BD anterior a las cuentas (sin schema_meta) no se migra: se rechaza."""
+    import sqlite3
 
-    conn = get_connection()
-    with _lock:
-        conn.execute(
-            "INSERT INTO challenges "
-            "(title, required_users, is_used, created_at, collection_id) "
-            "VALUES ('Sin coleccion', 1, 0, '2020-01-01T00:00:00Z', NULL)"
-        )
-        conn.commit()
-    init_db()  # ejecuta el backfill
-    rows = client.get("/api/challenges").json()
-    c = next(c for c in rows if c["title"] == "Sin coleccion")
-    assert c["collection_id"] is not None
+    from app import database
+
+    legacy = tmp_path / "legacy.db"
+    with sqlite3.connect(legacy) as conn:
+        conn.execute("CREATE TABLE challenges (id INTEGER PRIMARY KEY, title TEXT)")
+    original_path, original_conn = database.DATABASE_PATH, database._connection
+    database.DATABASE_PATH, database._connection = str(legacy), None
+    try:
+        with pytest.raises(database.IncompatibleDatabaseError):
+            database.init_db()
+    finally:
+        database._connection.close()
+        database.DATABASE_PATH, database._connection = original_path, original_conn
 
 
 # --------------------------------------------------------------------------

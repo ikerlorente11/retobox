@@ -18,7 +18,8 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     environment:
       - DATABASE_PATH=/data/retobox.db
-      - SEED_DATA=1                     # carga las 29 tarjetas de ejemplo en dev
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - BCRYPT_ROUNDS=6                 # hashing rápido en desarrollo
     volumes:
       - ./backend/app:/app/app        # código montado -> uvicorn --reload lo vigila
       - retobox-data-dev:/data
