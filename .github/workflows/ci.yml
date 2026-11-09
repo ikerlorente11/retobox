@@ -5,7 +5,10 @@ name: CI
 on:
   push:
     branches: [main]
+    # Solo documentación: no lanza el CI (los lunes y a mano se ejecuta todo igualmente)
+    paths-ignore: ["**.md", "docs/**", ".claude/**", "LICENSE"]
   pull_request:
+    paths-ignore: ["**.md", "docs/**", ".claude/**", "LICENSE"]
   workflow_dispatch: {}
   schedule:
     - cron: "0 5 * * 1"
@@ -15,7 +18,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Qué parte ha cambiado (changes.yml del CI común): cada una se prueba y se construye solo cuando cambia ella.
+  # Con el cron de los lunes, a mano o si cambian los propios workflows, todo.
+  changes:
+    uses: ikerlorente11/ci/.github/workflows/changes.yml@main
+    with:
+      filters: |
+        backend: ['backend/**']
+        frontend: ['frontend/**']
+        shared: ['shared/**']
+        mobile: ['mobile/**', 'shared/**']
+
   backend:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.changed), 'backend')
     uses: ikerlorente11/ci/.github/workflows/python.yml@main
     with:
       directory: backend
@@ -23,24 +39,33 @@ jobs:
       deps: requirements.txt
       install: pip install -q -r requirements-dev.txt
   frontend:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.changed), 'frontend')
     uses: ikerlorente11/ci/.github/workflows/node.yml@main
     with:
       directory: frontend
       test: "npm test && npm run build"
   shared:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.changed), 'shared')
     uses: ikerlorente11/ci/.github/workflows/node.yml@main
     with:
       directory: shared
       test: "npm test && npm run typecheck"
   mobile:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.changed), 'mobile')
     uses: ikerlorente11/ci/.github/workflows/node.yml@main
     with:
       directory: mobile
       test: "npm run typecheck && npm test"
 
+  # always(): que un test que no ha hecho falta (skipped) no la salte; espera a que pasen los que sí han corrido
   api:
-    if: github.ref_name == github.event.repository.default_branch || github.event_name == 'schedule'
-    needs: backend
+    if: always() && (github.ref_name == github.event.repository.default_branch || github.event_name == 'schedule')
+        && contains(fromJSON(needs.changes.outputs.changed), 'backend')
+        && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
+    needs: [changes, backend]
     uses: ikerlorente11/ci/.github/workflows/image.yml@main
     permissions:
       contents: read
@@ -49,8 +74,10 @@ jobs:
       name: retobox-api
       context: backend
   web:
-    if: github.ref_name == github.event.repository.default_branch || github.event_name == 'schedule'
-    needs: [frontend, shared]
+    if: always() && (github.ref_name == github.event.repository.default_branch || github.event_name == 'schedule')
+        && contains(fromJSON(needs.changes.outputs.changed), 'frontend')
+        && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
+    needs: [changes, frontend]
     uses: ikerlorente11/ci/.github/workflows/image.yml@main
     permissions:
       contents: read
