@@ -1,0 +1,60 @@
+name: CI
+
+# CI común (github.com/ikerlorente11/ci): en cada push, tests; en main, además, las imágenes arm64 a GHCR, que piprod descarga.
+# Los lunes, las imágenes sin caché para que entren las actualizaciones de la base y las dependencias.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 5 * * 1"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    uses: ikerlorente11/ci/.github/workflows/python.yml@main
+    with:
+      directory: backend
+      python: "3.11"
+      deps: requirements.txt
+      install: pip install -q -r requirements-dev.txt
+  frontend:
+    uses: ikerlorente11/ci/.github/workflows/node.yml@main
+    with:
+      directory: frontend
+      test: "npm test && npm run build"
+  shared:
+    uses: ikerlorente11/ci/.github/workflows/node.yml@main
+    with:
+      directory: shared
+      test: "npm test && npm run typecheck"
+  mobile:
+    uses: ikerlorente11/ci/.github/workflows/node.yml@main
+    with:
+      directory: mobile
+      test: "npm run typecheck && npm test"
+
+  api:
+    if: github.ref_name == github.event.repository.default_branch || github.event_name == 'schedule'
+    needs: backend
+    uses: ikerlorente11/ci/.github/workflows/image.yml@main
+    permissions:
+      contents: read
+      packages: write
+    with:
+      name: retobox-api
+      context: backend
+  web:
+    if: github.ref_name == github.event.repository.default_branch || github.event_name == 'schedule'
+    needs: [frontend, shared]
+    uses: ikerlorente11/ci/.github/workflows/image.yml@main
+    permissions:
+      contents: read
+      packages: write
+    with:
+      name: retobox-web
+      context: frontend

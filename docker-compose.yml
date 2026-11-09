@@ -10,6 +10,7 @@ name: retobox
 services:
   api:
     build: ./backend
+    image: ghcr.io/ikerlorente11/retobox-api:latest   # built by the CI; `docker compose pull`
     environment:
       - DATABASE_PATH=/data/retobox.db
       # Client ID público de Google (login con Google), desde .env. Vacío = botón oculto.
@@ -31,6 +32,7 @@ services:
 
   web:
     build: ./frontend
+    image: ghcr.io/ikerlorente11/retobox-web:latest
     ports:
       - "8050:80"
     depends_on:
