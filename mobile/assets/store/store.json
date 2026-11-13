@@ -1,0 +1,17 @@
+{
+  "name": "RetoBox",
+  "bg_top": "#3b1466", "bg_bottom": "#0b0614", "accent": "#ec4899",
+  "text": "#ffffff", "subtext": "#e3d5f5",
+  "icon": {"src": "icono-fuente.png", "bg": "#a855f7", "crop": [2, 2, 1022, 1022]},
+  "feature": {"shot": "02-sorteo.jpg", "tagline": ["Retos al azar para tus fiestas,", "con jugadores, colecciones y combos"]},
+  "shots": [
+    {"file": "01-reto.jpg", "caption": "El azar decide el reto y quién lo hace"},
+    {"file": "02-sorteo.jpg", "caption": "Tira el dado y que empiece la fiesta"},
+    {"file": "03-companero.jpg", "caption": "Sortea también con quién lo haces"},
+    {"file": "04-combos.jpg", "caption": "Mezcla palabras y crea retos al vuelo"},
+    {"file": "05-retos.jpg", "caption": "Escribe vuestros propios retos"},
+    {"file": "06-colecciones.jpg", "caption": "Una colección para cada plan"},
+    {"file": "07-usuarios.jpg", "caption": "Todo tu grupo, cada uno con su color"},
+    {"file": "08-ajustes.jpg", "caption": "Oscuro o claro, y siempre sin conexión"}
+  ]
+}
