@@ -30,6 +30,7 @@ from app.auth import (
     verify_google_token,
     verify_password,
 )
+from app.avisos import avisar
 from app.database import _lock, account_row_to_dict, get_connection, write_transaction
 from app.models import (
     Account,
@@ -93,6 +94,7 @@ def register(
         )
         account_id = cur.lastrowid
         _create_first_collection(conn, account_id, now)
+        avisar("cuenta-nueva", f"Cuenta nueva en RetoBox: {name}", f"{email} · con contraseña")
         return _login_response(conn, response, account_id, guest_key)
 
 
@@ -151,6 +153,7 @@ def google_login(
                 )
                 account_id = cur.lastrowid
                 _create_first_collection(conn, account_id, now)
+                avisar("cuenta-nueva", f"Cuenta nueva en RetoBox: {info['name'][:80]}", f"{email} · con Google")
         else:
             account_id = row["id"]
         return _login_response(conn, response, account_id, guest_key)

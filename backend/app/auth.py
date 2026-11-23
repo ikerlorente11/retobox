@@ -22,6 +22,7 @@ from datetime import datetime, timedelta, timezone
 import bcrypt
 from fastapi import Depends, Header, HTTPException, Request, Response
 
+from app.avisos import avisar
 from app.database import _lock, account_row_to_dict, get_connection
 
 SESSION_COOKIE = "retobox_session"
@@ -139,7 +140,13 @@ def record_login_failure(client_ip: str, email: str) -> None:
             # Still full after pruning: forget the oldest key rather than grow.
             oldest = min(_login_attempts, key=lambda k: _login_attempts[k][-1])
             del _login_attempts[oldest]
-        _login_attempts.setdefault((client_ip, email), []).append(now)
+        attempts = _login_attempts.setdefault((client_ip, email), [])
+        attempts.append(now)
+        blocked = len(attempts) == LOGIN_MAX_ATTEMPTS
+    if blocked:  # once, when the limit is reached
+        avisar("login-bloqueado", f"RetoBox: {email} bloqueada por intentos fallidos",
+               f"{LOGIN_MAX_ATTEMPTS} contraseñas incorrectas en {LOGIN_WINDOW_SECONDS // 60} minutos desde {client_ip}. "
+               "Si no eres tú, alguien está probando contraseñas.")
 
 
 def clear_login_failures(client_ip: str, email: str) -> None:
